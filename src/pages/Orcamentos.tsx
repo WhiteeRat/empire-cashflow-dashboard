@@ -47,7 +47,7 @@ export default function Orcamentos() {
   };
 
   const save = async () => {
-    if (!form.client || !form.product) return toast.error("Pagador e produto obrigatórios");
+    if (!form.client || !form.product) return toast.error("Pessoa e produto obrigatórios");
     const cost = Number(form.cost) || 0;
     const margin = Number(form.margin_percent) || 0;
     const { sale, markup, profit } = compute(cost, margin);
@@ -82,7 +82,7 @@ export default function Orcamentos() {
               <DialogHeader><DialogTitle>Novo Orçamento / Conta</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3">
-                  <div><Label>Pagador</Label><Input value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} /></div>
+                  <div><Label>Pessoa</Label><Input value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} /></div>
                   <div><Label>Tipo</Label>
                     <Select value={form.client_type} onValueChange={v => setForm({ ...form, client_type: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -125,7 +125,7 @@ export default function Orcamentos() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Pagador</TableHead><TableHead>Cidade</TableHead><TableHead>Produto/Serviço</TableHead>
+                <TableHead>Pessoa</TableHead><TableHead>Cidade</TableHead><TableHead>Produto/Serviço</TableHead>
                 <TableHead>Início</TableHead><TableHead>Fim</TableHead><TableHead>Agenda</TableHead>
                 <TableHead className="text-right">Custo</TableHead><TableHead className="text-right">Venda</TableHead>
                 <TableHead className="text-right">Lucro</TableHead><TableHead className="text-right">Sinal</TableHead>
