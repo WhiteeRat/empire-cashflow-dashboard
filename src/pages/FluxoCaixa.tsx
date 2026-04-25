@@ -284,7 +284,7 @@ export default function FluxoCaixa() {
           <Card className="p-0 bg-card/60 overflow-hidden">
             <div className="overflow-x-auto scrollbar-thin">
               <Table>
-                <TableHeader><TableRow><TableHead>Vencimento</TableHead><TableHead>Cliente</TableHead><TableHead>Projeto</TableHead><TableHead className="text-right">Custo</TableHead><TableHead className="text-right">A Receber</TableHead><TableHead className="text-right">Diferença Real</TableHead><TableHead className="text-center">Recebido?</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Vencimento</TableHead><TableHead>Pagador</TableHead><TableHead>Conta</TableHead><TableHead className="text-right">Custo</TableHead><TableHead className="text-right">A Receber</TableHead><TableHead className="text-right">Diferença Real</TableHead><TableHead className="text-center">Recebido?</TableHead><TableHead></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {receivables.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum recebível</TableCell></TableRow>}
                   {receivables.map(r => {
