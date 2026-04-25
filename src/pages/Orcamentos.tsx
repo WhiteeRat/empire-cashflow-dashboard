@@ -47,7 +47,7 @@ export default function Orcamentos() {
   };
 
   const save = async () => {
-    if (!form.client || !form.product) return toast.error("Cliente e produto obrigatórios");
+    if (!form.client || !form.product) return toast.error("Pagador e produto obrigatórios");
     const cost = Number(form.cost) || 0;
     const margin = Number(form.margin_percent) || 0;
     const { sale, markup, profit } = compute(cost, margin);
@@ -74,15 +74,15 @@ export default function Orcamentos() {
     <div className="space-y-6">
       <PageHeader
         title="Orçamentos & Agenda"
-        subtitle="CRM, produtividade e controle de projetos"
+        subtitle="CRM, produtividade e controle de contas"
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Novo Orçamento</Button></DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Novo Orçamento / Projeto</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Novo Orçamento / Conta</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3">
-                  <div><Label>Cliente</Label><Input value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} /></div>
+                  <div><Label>Pagador</Label><Input value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} /></div>
                   <div><Label>Tipo</Label>
                     <Select value={form.client_type} onValueChange={v => setForm({ ...form, client_type: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
@@ -125,7 +125,7 @@ export default function Orcamentos() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Cliente</TableHead><TableHead>Cidade</TableHead><TableHead>Produto/Serviço</TableHead>
+                <TableHead>Pagador</TableHead><TableHead>Cidade</TableHead><TableHead>Produto/Serviço</TableHead>
                 <TableHead>Início</TableHead><TableHead>Fim</TableHead><TableHead>Agenda</TableHead>
                 <TableHead className="text-right">Custo</TableHead><TableHead className="text-right">Venda</TableHead>
                 <TableHead className="text-right">Lucro</TableHead><TableHead className="text-right">Sinal</TableHead>
