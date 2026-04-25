@@ -108,24 +108,33 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          daily_rate: number
           id: string
+          monthly_salary: number
           name: string
+          pay_type: string
           role: string | null
           user_id: string
         }
         Insert: {
           active?: boolean
           created_at?: string
+          daily_rate?: number
           id?: string
+          monthly_salary?: number
           name: string
+          pay_type?: string
           role?: string | null
           user_id: string
         }
         Update: {
           active?: boolean
           created_at?: string
+          daily_rate?: number
           id?: string
+          monthly_salary?: number
           name?: string
+          pay_type?: string
           role?: string | null
           user_id?: string
         }
@@ -248,6 +257,48 @@ export type Database = {
         }
         Relationships: []
       }
+      projects: {
+        Row: {
+          client: string | null
+          created_at: string
+          deadline: string | null
+          id: string
+          name: string
+          notes: string | null
+          progress: number
+          responsible: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client?: string | null
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          progress?: number
+          responsible?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client?: string | null
+          created_at?: string
+          deadline?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          progress?: number
+          responsible?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       receivables: {
         Row: {
           amount: number
@@ -322,27 +373,42 @@ export type Database = {
           clock_in: string | null
           clock_out: string | null
           created_at: string
+          daily_rate: number
           date: string
           employee_id: string | null
           id: string
+          lunch_in: string | null
+          lunch_out: string | null
+          notes: string | null
+          pay_type: string
           user_id: string
         }
         Insert: {
           clock_in?: string | null
           clock_out?: string | null
           created_at?: string
+          daily_rate?: number
           date?: string
           employee_id?: string | null
           id?: string
+          lunch_in?: string | null
+          lunch_out?: string | null
+          notes?: string | null
+          pay_type?: string
           user_id: string
         }
         Update: {
           clock_in?: string | null
           clock_out?: string | null
           created_at?: string
+          daily_rate?: number
           date?: string
           employee_id?: string | null
           id?: string
+          lunch_in?: string | null
+          lunch_out?: string | null
+          notes?: string | null
+          pay_type?: string
           user_id?: string
         }
         Relationships: [
