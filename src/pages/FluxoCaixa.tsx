@@ -64,7 +64,7 @@ export default function FluxoCaixa() {
   };
 
   const addRec = async () => {
-    if (!recForm.client || !recForm.amount) return toast.error("Preencha pagador e valor");
+    if (!recForm.client || !recForm.amount) return toast.error("Preencha pessoa e valor");
     const { error } = await supabase.from("receivables").insert({ ...recForm, amount: Number(recForm.amount), cost: Number(recForm.cost) || 0, due_date: recForm.due_date || null, user_id: user!.id });
     if (error) toast.error(error.message);
     else { toast.success("Recebível adicionado"); setRecDialog(false); setRecForm({ client: "", project: "", due_date: "", cost: "", amount: "" }); load(); }
@@ -267,7 +267,7 @@ export default function FluxoCaixa() {
                 <DialogHeader><DialogTitle>Nova Conta a Receber</DialogTitle></DialogHeader>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Pagador</Label><Input value={recForm.client} onChange={e => setRecForm({ ...recForm, client: e.target.value })} /></div>
+                    <div><Label>Pessoa</Label><Input value={recForm.client} onChange={e => setRecForm({ ...recForm, client: e.target.value })} /></div>
                     <div><Label>Conta</Label><Input value={recForm.project} onChange={e => setRecForm({ ...recForm, project: e.target.value })} /></div>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
@@ -284,7 +284,7 @@ export default function FluxoCaixa() {
           <Card className="p-0 bg-card/60 overflow-hidden">
             <div className="overflow-x-auto scrollbar-thin">
               <Table>
-                <TableHeader><TableRow><TableHead>Vencimento</TableHead><TableHead>Pagador</TableHead><TableHead>Conta</TableHead><TableHead className="text-right">Custo</TableHead><TableHead className="text-right">A Receber</TableHead><TableHead className="text-right">Diferença Real</TableHead><TableHead className="text-center">Recebido?</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Vencimento</TableHead><TableHead>Pessoa</TableHead><TableHead>Conta</TableHead><TableHead className="text-right">Custo</TableHead><TableHead className="text-right">A Receber</TableHead><TableHead className="text-right">Diferença Real</TableHead><TableHead className="text-center">Recebido?</TableHead><TableHead></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {receivables.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum recebível</TableCell></TableRow>}
                   {receivables.map(r => {
