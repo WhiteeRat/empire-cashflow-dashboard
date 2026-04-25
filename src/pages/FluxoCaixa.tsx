@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { PageHeader } from "@/components/PageHeader";
@@ -12,25 +12,47 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Trash2, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { Plus, Upload, Trash2, ArrowDownCircle, ArrowUpCircle, Pencil, FileText } from "lucide-react";
 import { fmtBRL, fmtDate } from "@/lib/format";
 import { importSheet } from "@/lib/exporter";
+import { parsePdfStatement, PdfRow } from "@/lib/pdfImporter";
 import { toast } from "sonner";
+
+type AnyRec = Record<string, any>;
+
+const emptyTx = { id: "", date: new Date().toISOString().slice(0, 10), description: "", category: "", type: "receita", amount: "", bank_id: "" };
+const emptyPay = { id: "", category: "Operação", priority: "Alta", description: "", amount: "", due_date: "" };
+const emptyRec = { id: "", client: "", project: "", due_date: "", cost: "", amount: "" };
 
 export default function FluxoCaixa() {
   const { user } = useAuth();
-  const [txs, setTxs] = useState<any[]>([]);
-  const [payables, setPayables] = useState<any[]>([]);
-  const [receivables, setReceivables] = useState<any[]>([]);
-  const [banks, setBanks] = useState<any[]>([]);
+  const [txs, setTxs] = useState<AnyRec[]>([]);
+  const [payables, setPayables] = useState<AnyRec[]>([]);
+  const [receivables, setReceivables] = useState<AnyRec[]>([]);
+  const [banks, setBanks] = useState<AnyRec[]>([]);
 
   const [txDialog, setTxDialog] = useState(false);
   const [payDialog, setPayDialog] = useState(false);
   const [recDialog, setRecDialog] = useState(false);
+  const [pdfDialog, setPdfDialog] = useState(false);
 
-  const [txForm, setTxForm] = useState({ date: new Date().toISOString().slice(0, 10), description: "", category: "", type: "receita", amount: "", bank_id: "" });
-  const [payForm, setPayForm] = useState({ category: "Operação", priority: "Alta", description: "", amount: "", due_date: "" });
-  const [recForm, setRecForm] = useState({ client: "", project: "", due_date: "", cost: "", amount: "" });
+  const [txForm, setTxForm] = useState<AnyRec>({ ...emptyTx });
+  const [payForm, setPayForm] = useState<AnyRec>({ ...emptyPay });
+  const [recForm, setRecForm] = useState<AnyRec>({ ...emptyRec });
+
+  // PDF preview
+  const [pdfRows, setPdfRows] = useState<PdfRow[]>([]);
+  const [pdfBankId, setPdfBankId] = useState<string>("");
+  const [pdfLoading, setPdfLoading] = useState(false);
+
+  // Filtros (Fluxo)
+  const [fStart, setFStart] = useState("");
+  const [fEnd, setFEnd] = useState("");
+  const [fType, setFType] = useState<"todos" | "receita" | "despesa">("todos");
+  const [fSearch, setFSearch] = useState("");
+
+  // Edição inline transactions
+  const [inlineEdit, setInlineEdit] = useState<{ id: string; field: string } | null>(null);
 
   const load = async () => {
     const [t, p, r, b] = await Promise.all([
@@ -47,41 +69,78 @@ export default function FluxoCaixa() {
 
   useEffect(() => { if (user) load(); }, [user]);
 
-  const addTx = async () => {
+  // ===== Transactions =====
+  const openNewTx = () => { setTxForm({ ...emptyTx }); setTxDialog(true); };
+  const openEditTx = (t: AnyRec) => {
+    setTxForm({ id: t.id, date: t.date, description: t.description, category: t.category || "", type: t.type, amount: String(t.amount), bank_id: t.bank_id || "" });
+    setTxDialog(true);
+  };
+  const saveTx = async () => {
     if (!txForm.description || !txForm.amount) return toast.error("Preencha descrição e valor");
-    const { error } = await supabase.from("transactions").insert({
-      ...txForm, amount: Number(txForm.amount), bank_id: txForm.bank_id || null, user_id: user!.id,
-    });
-    if (error) toast.error(error.message);
-    else { toast.success("Lançamento adicionado"); setTxDialog(false); setTxForm({ date: new Date().toISOString().slice(0, 10), description: "", category: "", type: "receita", amount: "", bank_id: "" }); load(); }
-  };
-
-  const addPay = async () => {
-    if (!payForm.description || !payForm.amount) return toast.error("Preencha descrição e valor");
-    const { error } = await supabase.from("payables").insert({ ...payForm, amount: Number(payForm.amount), due_date: payForm.due_date || null, user_id: user!.id });
-    if (error) toast.error(error.message);
-    else { toast.success("Conta adicionada"); setPayDialog(false); setPayForm({ category: "Operação", priority: "Alta", description: "", amount: "", due_date: "" }); load(); }
-  };
-
-  const addRec = async () => {
-    if (!recForm.client || !recForm.amount) return toast.error("Preencha pessoa e valor");
-    const { error } = await supabase.from("receivables").insert({ ...recForm, amount: Number(recForm.amount), cost: Number(recForm.cost) || 0, due_date: recForm.due_date || null, user_id: user!.id });
-    if (error) toast.error(error.message);
-    else { toast.success("Recebível adicionado"); setRecDialog(false); setRecForm({ client: "", project: "", due_date: "", cost: "", amount: "" }); load(); }
-  };
-
-  const togglePay = async (id: string, paid: boolean) => {
-    await supabase.from("payables").update({ paid }).eq("id", id);
-    load();
-  };
-  const toggleRec = async (id: string, received: boolean) => {
-    await supabase.from("receivables").update({ received }).eq("id", id);
-    load();
+    const payload: AnyRec = {
+      date: txForm.date, description: txForm.description, category: txForm.category || null,
+      type: txForm.type, amount: Number(txForm.amount), bank_id: txForm.bank_id || null,
+    };
+    const { error } = txForm.id
+      ? await supabase.from("transactions").update(payload).eq("id", txForm.id)
+      : await supabase.from("transactions").insert({ ...payload, user_id: user!.id });
+    if (error) return toast.error(error.message);
+    toast.success(txForm.id ? "Lançamento atualizado" : "Lançamento adicionado");
+    setTxDialog(false); load();
   };
   const delTx = async (id: string) => { await supabase.from("transactions").delete().eq("id", id); load(); };
+
+  const inlineUpdateTx = async (id: string, field: string, value: any) => {
+    const v = field === "amount" ? Number(value) : value;
+    await supabase.from("transactions").update({ [field]: v }).eq("id", id);
+    setInlineEdit(null); load();
+  };
+
+  // ===== Payables =====
+  const openNewPay = () => { setPayForm({ ...emptyPay }); setPayDialog(true); };
+  const openEditPay = (p: AnyRec) => {
+    setPayForm({ id: p.id, category: p.category, priority: p.priority, description: p.description, amount: String(p.amount), due_date: p.due_date || "" });
+    setPayDialog(true);
+  };
+  const savePay = async () => {
+    if (!payForm.description || !payForm.amount) return toast.error("Preencha descrição e valor");
+    const payload: AnyRec = {
+      category: payForm.category, priority: payForm.priority, description: payForm.description,
+      amount: Number(payForm.amount), due_date: payForm.due_date || null,
+    };
+    const { error } = payForm.id
+      ? await supabase.from("payables").update(payload).eq("id", payForm.id)
+      : await supabase.from("payables").insert({ ...payload, user_id: user!.id });
+    if (error) return toast.error(error.message);
+    toast.success(payForm.id ? "Conta atualizada" : "Conta adicionada");
+    setPayDialog(false); load();
+  };
+  const togglePay = async (id: string, paid: boolean) => { await supabase.from("payables").update({ paid }).eq("id", id); load(); };
   const delPay = async (id: string) => { await supabase.from("payables").delete().eq("id", id); load(); };
+
+  // ===== Receivables =====
+  const openNewRec = () => { setRecForm({ ...emptyRec }); setRecDialog(true); };
+  const openEditRec = (r: AnyRec) => {
+    setRecForm({ id: r.id, client: r.client, project: r.project || "", due_date: r.due_date || "", cost: String(r.cost), amount: String(r.amount) });
+    setRecDialog(true);
+  };
+  const saveRec = async () => {
+    if (!recForm.client || !recForm.amount) return toast.error("Preencha pessoa e valor");
+    const payload: AnyRec = {
+      client: recForm.client, project: recForm.project || null, due_date: recForm.due_date || null,
+      cost: Number(recForm.cost) || 0, amount: Number(recForm.amount),
+    };
+    const { error } = recForm.id
+      ? await supabase.from("receivables").update(payload).eq("id", recForm.id)
+      : await supabase.from("receivables").insert({ ...payload, user_id: user!.id });
+    if (error) return toast.error(error.message);
+    toast.success(recForm.id ? "Recebível atualizado" : "Recebível adicionado");
+    setRecDialog(false); load();
+  };
+  const toggleRec = async (id: string, received: boolean) => { await supabase.from("receivables").update({ received }).eq("id", id); load(); };
   const delRec = async (id: string) => { await supabase.from("receivables").delete().eq("id", id); load(); };
 
+  // ===== Imports =====
   const importExtrato = async (file: File) => {
     try {
       const rows = await importSheet(file);
@@ -102,6 +161,53 @@ export default function FluxoCaixa() {
       else { toast.success(`${inserts.length} lançamentos importados`); load(); }
     } catch { toast.error("Erro ao processar arquivo"); }
   };
+
+  const handlePdfFile = async (file: File) => {
+    setPdfLoading(true);
+    try {
+      const rows = await parsePdfStatement(file);
+      if (!rows.length) toast.error("Nenhum lançamento detectado no PDF");
+      setPdfRows(rows);
+      setPdfDialog(true);
+    } catch (e: any) {
+      toast.error("Falha ao ler PDF: " + (e?.message || "erro"));
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+
+  const confirmPdfImport = async () => {
+    const selected = pdfRows.filter(r => r.include && r.amount > 0);
+    if (!selected.length) return toast.error("Selecione ao menos uma linha");
+    const inserts = selected.map(r => ({
+      user_id: user!.id,
+      date: r.date,
+      description: r.description,
+      amount: r.amount,
+      type: r.type,
+      category: "Importado PDF",
+      bank_id: pdfBankId || null,
+    }));
+    const { error } = await supabase.from("transactions").insert(inserts);
+    if (error) return toast.error(error.message);
+    toast.success(`${inserts.length} lançamentos importados do PDF`);
+    setPdfDialog(false); setPdfRows([]); load();
+  };
+
+  // ===== Filtros =====
+  const filteredTxs = useMemo(() => {
+    return txs.filter(t => {
+      if (fStart && t.date < fStart) return false;
+      if (fEnd && t.date > fEnd) return false;
+      if (fType !== "todos" && t.type !== fType) return false;
+      if (fSearch && !String(t.description).toLowerCase().includes(fSearch.toLowerCase())) return false;
+      return true;
+    });
+  }, [txs, fStart, fEnd, fType, fSearch]);
+
+  const filteredEntradas = filteredTxs.filter(t => t.type === "receita").reduce((s, t) => s + Number(t.amount), 0);
+  const filteredSaidas = filteredTxs.filter(t => t.type === "despesa").reduce((s, t) => s + Number(t.amount), 0);
+  const saldoFiltrado = filteredEntradas - filteredSaidas;
 
   const totalPay = payables.filter(p => !p.paid).reduce((s, p) => s + Number(p.amount), 0);
   const totalRec = receivables.filter(r => !r.received).reduce((s, r) => s + Number(r.amount), 0);
@@ -124,61 +230,109 @@ export default function FluxoCaixa() {
         </TabsList>
 
         <TabsContent value="fluxo" className="space-y-4 mt-4">
-          <div className="flex flex-wrap gap-2 justify-end">
-            <label className="cursor-pointer">
-              <Button asChild variant="outline" className="gap-2 border-primary/40"><span><Upload className="h-4 w-4" /> Importar CSV/XLSX</span></Button>
-              <input type="file" accept=".csv,.xlsx,.xls" hidden onChange={e => e.target.files && importExtrato(e.target.files[0])} />
-            </label>
-            <Dialog open={txDialog} onOpenChange={setTxDialog}>
-              <DialogTrigger asChild><Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Lançamento</Button></DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>Novo Lançamento</DialogTitle></DialogHeader>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Data</Label><Input type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })} /></div>
-                    <div><Label>Tipo</Label>
-                      <Select value={txForm.type} onValueChange={v => setTxForm({ ...txForm, type: v })}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent><SelectItem value="receita">Receita</SelectItem><SelectItem value="despesa">Despesa</SelectItem></SelectContent>
+          {/* Toolbar */}
+          <div className="flex flex-wrap gap-2 justify-between items-center">
+            <div className="flex flex-wrap gap-2 items-end">
+              <div><Label className="text-xs">De</Label><Input type="date" value={fStart} onChange={e => setFStart(e.target.value)} className="h-9 w-[140px]" /></div>
+              <div><Label className="text-xs">Até</Label><Input type="date" value={fEnd} onChange={e => setFEnd(e.target.value)} className="h-9 w-[140px]" /></div>
+              <div><Label className="text-xs">Tipo</Label>
+                <Select value={fType} onValueChange={(v: any) => setFType(v)}>
+                  <SelectTrigger className="h-9 w-[130px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="receita">Receita</SelectItem>
+                    <SelectItem value="despesa">Despesa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div><Label className="text-xs">Buscar</Label><Input value={fSearch} onChange={e => setFSearch(e.target.value)} placeholder="descrição..." className="h-9 w-[180px]" /></div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <label className="cursor-pointer">
+                <Button asChild variant="outline" className="gap-2 border-primary/40"><span><Upload className="h-4 w-4" /> CSV/XLSX</span></Button>
+                <input type="file" accept=".csv,.xlsx,.xls" hidden onChange={e => e.target.files && importExtrato(e.target.files[0])} />
+              </label>
+              <label className="cursor-pointer">
+                <Button asChild variant="outline" disabled={pdfLoading} className="gap-2 border-primary/40"><span><FileText className="h-4 w-4" /> {pdfLoading ? "Lendo PDF..." : "Extrato PDF"}</span></Button>
+                <input type="file" accept="application/pdf" hidden onChange={e => e.target.files && handlePdfFile(e.target.files[0])} />
+              </label>
+              <Dialog open={txDialog} onOpenChange={setTxDialog}>
+                <DialogTrigger asChild><Button onClick={openNewTx} className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Lançamento</Button></DialogTrigger>
+                <DialogContent>
+                  <DialogHeader><DialogTitle>{txForm.id ? "Editar Lançamento" : "Novo Lançamento"}</DialogTitle></DialogHeader>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label>Data</Label><Input type="date" value={txForm.date} onChange={e => setTxForm({ ...txForm, date: e.target.value })} /></div>
+                      <div><Label>Tipo</Label>
+                        <Select value={txForm.type} onValueChange={v => setTxForm({ ...txForm, type: v })}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent><SelectItem value="receita">Receita</SelectItem><SelectItem value="despesa">Despesa</SelectItem></SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div><Label>Descrição</Label><Input value={txForm.description} onChange={e => setTxForm({ ...txForm, description: e.target.value })} /></div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div><Label>Categoria</Label><Input value={txForm.category} onChange={e => setTxForm({ ...txForm, category: e.target.value })} /></div>
+                      <div><Label>Valor</Label><Input type="number" step="0.01" value={txForm.amount} onChange={e => setTxForm({ ...txForm, amount: e.target.value })} /></div>
+                    </div>
+                    <div><Label>Banco (opcional)</Label>
+                      <Select value={txForm.bank_id} onValueChange={v => setTxForm({ ...txForm, bank_id: v })}>
+                        <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>{banks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
-                  <div><Label>Descrição</Label><Input value={txForm.description} onChange={e => setTxForm({ ...txForm, description: e.target.value })} /></div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Categoria</Label><Input value={txForm.category} onChange={e => setTxForm({ ...txForm, category: e.target.value })} placeholder="ex: Marketing" /></div>
-                    <div><Label>Valor</Label><Input type="number" step="0.01" value={txForm.amount} onChange={e => setTxForm({ ...txForm, amount: e.target.value })} /></div>
-                  </div>
-                  <div><Label>Banco (opcional)</Label>
-                    <Select value={txForm.bank_id} onValueChange={v => setTxForm({ ...txForm, bank_id: v })}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>{banks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <DialogFooter><Button onClick={addTx} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  <DialogFooter><Button onClick={saveTx} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+
+          {/* Totais filtrados */}
+          <div className="grid grid-cols-3 gap-3">
+            <Card className="p-3 bg-success/5 border-success/30"><div className="text-xs text-muted-foreground">Entradas</div><div className="font-display text-xl text-success">{fmtBRL(filteredEntradas)}</div></Card>
+            <Card className="p-3 bg-destructive/5 border-destructive/30"><div className="text-xs text-muted-foreground">Saídas</div><div className="font-display text-xl text-destructive">{fmtBRL(filteredSaidas)}</div></Card>
+            <Card className="p-3 bg-primary/5 border-primary/30"><div className="text-xs text-muted-foreground">Saldo</div><div className={`font-display text-xl ${saldoFiltrado >= 0 ? "text-primary-glow" : "text-destructive"}`}>{fmtBRL(saldoFiltrado)}</div></Card>
           </div>
 
           <Card className="p-0 bg-card/60 overflow-hidden">
             <div className="overflow-x-auto scrollbar-thin">
               <Table>
-                <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Valor</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Categoria</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="w-24"></TableHead></TableRow></TableHeader>
                 <TableBody>
-                  {txs.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum lançamento</TableCell></TableRow>}
-                  {txs.map(t => (
-                    <TableRow key={t.id}>
-                      <TableCell className="text-sm">{fmtDate(t.date)}</TableCell>
-                      <TableCell>{t.description}</TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{t.category || "—"}</TableCell>
-                      <TableCell>{t.type === "receita" ? <ArrowUpCircle className="h-4 w-4 text-success" /> : <ArrowDownCircle className="h-4 w-4 text-destructive" />}</TableCell>
-                      <TableCell className={`text-right tabular-nums font-medium ${t.type === "receita" ? "text-success" : "text-destructive"}`}>{fmtBRL(t.amount)}</TableCell>
-                      <TableCell><Button size="icon" variant="ghost" onClick={() => delTx(t.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button></TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredTxs.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum lançamento</TableCell></TableRow>}
+                  {filteredTxs.map(t => {
+                    const isEdit = (f: string) => inlineEdit?.id === t.id && inlineEdit.field === f;
+                    return (
+                      <TableRow key={t.id}>
+                        <TableCell className="text-sm" onDoubleClick={() => setInlineEdit({ id: t.id, field: "date" })}>
+                          {isEdit("date") ? (
+                            <Input type="date" defaultValue={t.date} autoFocus onBlur={e => inlineUpdateTx(t.id, "date", e.target.value)} className="h-8" />
+                          ) : fmtDate(t.date)}
+                        </TableCell>
+                        <TableCell onDoubleClick={() => setInlineEdit({ id: t.id, field: "description" })}>
+                          {isEdit("description") ? (
+                            <Input defaultValue={t.description} autoFocus onBlur={e => inlineUpdateTx(t.id, "description", e.target.value)} className="h-8" />
+                          ) : t.description}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{t.category || "—"}</TableCell>
+                        <TableCell>{t.type === "receita" ? <ArrowUpCircle className="h-4 w-4 text-success" /> : <ArrowDownCircle className="h-4 w-4 text-destructive" />}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-medium ${t.type === "receita" ? "text-success" : "text-destructive"}`} onDoubleClick={() => setInlineEdit({ id: t.id, field: "amount" })}>
+                          {isEdit("amount") ? (
+                            <Input type="number" step="0.01" defaultValue={t.amount} autoFocus onBlur={e => inlineUpdateTx(t.id, "amount", e.target.value)} className="h-8 text-right" />
+                          ) : fmtBRL(t.amount)}
+                        </TableCell>
+                        <TableCell className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => openEditTx(t)}><Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => delTx(t.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
+            <div className="px-4 py-2 text-[11px] text-muted-foreground border-t border-border/40">Dica: clique duas vezes em data, descrição ou valor para editar inline.</div>
           </Card>
         </TabsContent>
 
@@ -186,9 +340,9 @@ export default function FluxoCaixa() {
           <div className="flex justify-between items-center">
             <div className="text-sm">Total pendente: <span className="font-display text-xl text-destructive">{fmtBRL(totalPay)}</span></div>
             <Dialog open={payDialog} onOpenChange={setPayDialog}>
-              <DialogTrigger asChild><Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Conta a Pagar</Button></DialogTrigger>
+              <DialogTrigger asChild><Button onClick={openNewPay} className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Conta a Pagar</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nova Conta a Pagar</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{payForm.id ? "Editar Conta" : "Nova Conta a Pagar"}</DialogTitle></DialogHeader>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div><Label>Categoria</Label>
@@ -205,10 +359,7 @@ export default function FluxoCaixa() {
                       <Select value={payForm.priority} onValueChange={v => setPayForm({ ...payForm, priority: v })}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="Alta">Reserva de Capital</SelectItem>
-                          <SelectItem value="Alta">Marketing</SelectItem>
-                          <SelectItem value="Alta">Funcionários</SelectItem>
-                          <SelectItem value="Alta">Impostos</SelectItem>
+                          <SelectItem value="Alta">Alta</SelectItem>
                           <SelectItem value="Média">Média</SelectItem>
                           <SelectItem value="Baixa">Baixa</SelectItem>
                         </SelectContent>
@@ -221,7 +372,7 @@ export default function FluxoCaixa() {
                     <div><Label>Vencimento</Label><Input type="date" value={payForm.due_date} onChange={e => setPayForm({ ...payForm, due_date: e.target.value })} /></div>
                   </div>
                 </div>
-                <DialogFooter><Button onClick={addPay} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
+                <DialogFooter><Button onClick={savePay} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -229,7 +380,7 @@ export default function FluxoCaixa() {
           <Card className="p-0 bg-card/60 overflow-hidden">
             <div className="overflow-x-auto scrollbar-thin">
               <Table>
-                <TableHeader><TableRow><TableHead>Categoria</TableHead><TableHead>Prioridade</TableHead><TableHead>Descrição</TableHead><TableHead>Vencimento</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="text-center">Pago?</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Categoria</TableHead><TableHead>Prioridade</TableHead><TableHead>Descrição</TableHead><TableHead>Vencimento</TableHead><TableHead className="text-right">Valor</TableHead><TableHead className="text-center">Pago?</TableHead><TableHead className="w-24"></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {payables.length === 0 && <TableRow><TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma conta</TableCell></TableRow>}
                   {payables.map(p => (
@@ -240,7 +391,10 @@ export default function FluxoCaixa() {
                       <TableCell className="text-sm">{fmtDate(p.due_date)}</TableCell>
                       <TableCell className="text-right tabular-nums font-medium">{fmtBRL(p.amount)}</TableCell>
                       <TableCell className="text-center"><Checkbox checked={p.paid} onCheckedChange={(v) => togglePay(p.id, !!v)} /></TableCell>
-                      <TableCell><Button size="icon" variant="ghost" onClick={() => delPay(p.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button></TableCell>
+                      <TableCell className="flex gap-1">
+                        <Button size="icon" variant="ghost" onClick={() => openEditPay(p)}><Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" /></Button>
+                        <Button size="icon" variant="ghost" onClick={() => delPay(p.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -262,9 +416,9 @@ export default function FluxoCaixa() {
           <div className="flex justify-between items-center">
             <div className="text-sm">Total a receber: <span className="font-display text-xl text-success">{fmtBRL(totalRec)}</span></div>
             <Dialog open={recDialog} onOpenChange={setRecDialog}>
-              <DialogTrigger asChild><Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Conta a Receber</Button></DialogTrigger>
+              <DialogTrigger asChild><Button onClick={openNewRec} className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Conta a Receber</Button></DialogTrigger>
               <DialogContent>
-                <DialogHeader><DialogTitle>Nova Conta a Receber</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle>{recForm.id ? "Editar Recebível" : "Nova Conta a Receber"}</DialogTitle></DialogHeader>
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div><Label>Pessoa</Label><Input value={recForm.client} onChange={e => setRecForm({ ...recForm, client: e.target.value })} /></div>
@@ -276,7 +430,7 @@ export default function FluxoCaixa() {
                     <div><Label>A Receber</Label><Input type="number" step="0.01" value={recForm.amount} onChange={e => setRecForm({ ...recForm, amount: e.target.value })} /></div>
                   </div>
                 </div>
-                <DialogFooter><Button onClick={addRec} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
+                <DialogFooter><Button onClick={saveRec} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
@@ -284,7 +438,7 @@ export default function FluxoCaixa() {
           <Card className="p-0 bg-card/60 overflow-hidden">
             <div className="overflow-x-auto scrollbar-thin">
               <Table>
-                <TableHeader><TableRow><TableHead>Vencimento</TableHead><TableHead>Pessoa</TableHead><TableHead>Conta</TableHead><TableHead className="text-right">Custo</TableHead><TableHead className="text-right">A Receber</TableHead><TableHead className="text-right">Diferença Real</TableHead><TableHead className="text-center">Recebido?</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                <TableHeader><TableRow><TableHead>Vencimento</TableHead><TableHead>Pessoa</TableHead><TableHead>Conta</TableHead><TableHead className="text-right">Custo</TableHead><TableHead className="text-right">A Receber</TableHead><TableHead className="text-right">Diferença Real</TableHead><TableHead className="text-center">Recebido?</TableHead><TableHead className="w-24"></TableHead></TableRow></TableHeader>
                 <TableBody>
                   {receivables.length === 0 && <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Nenhum recebível</TableCell></TableRow>}
                   {receivables.map(r => {
@@ -298,7 +452,10 @@ export default function FluxoCaixa() {
                         <TableCell className="text-right tabular-nums">{fmtBRL(r.amount)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-medium ${diff >= 0 ? "text-success" : "text-destructive"}`}>{fmtBRL(diff)}</TableCell>
                         <TableCell className="text-center"><Checkbox checked={r.received} onCheckedChange={(v) => toggleRec(r.id, !!v)} /></TableCell>
-                        <TableCell><Button size="icon" variant="ghost" onClick={() => delRec(r.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button></TableCell>
+                        <TableCell className="flex gap-1">
+                          <Button size="icon" variant="ghost" onClick={() => openEditRec(r)}><Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" /></Button>
+                          <Button size="icon" variant="ghost" onClick={() => delRec(r.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -308,6 +465,51 @@ export default function FluxoCaixa() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Diálogo de prévia de PDF */}
+      <Dialog open={pdfDialog} onOpenChange={setPdfDialog}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader><DialogTitle>Revisar Importação de Extrato PDF</DialogTitle></DialogHeader>
+          <div className="flex items-end gap-3 pb-3 border-b border-border/40">
+            <div className="flex-1">
+              <Label>Banco (opcional)</Label>
+              <Select value={pdfBankId} onValueChange={setPdfBankId}>
+                <SelectTrigger><SelectValue placeholder="Selecione um banco" /></SelectTrigger>
+                <SelectContent>{banks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm text-muted-foreground pb-2">{pdfRows.filter(r => r.include).length} de {pdfRows.length} selecionadas</div>
+          </div>
+          <div className="overflow-auto scrollbar-thin flex-1">
+            <Table>
+              <TableHeader><TableRow><TableHead className="w-10"></TableHead><TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Tipo</TableHead><TableHead className="text-right">Valor</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {pdfRows.length === 0 && <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhuma linha</TableCell></TableRow>}
+                {pdfRows.map((r, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Checkbox checked={r.include} onCheckedChange={v => { const c = [...pdfRows]; c[i].include = !!v; setPdfRows(c); }} /></TableCell>
+                    <TableCell><Input type="date" value={r.date} onChange={e => { const c = [...pdfRows]; c[i].date = e.target.value; setPdfRows(c); }} className="h-8 w-[140px]" /></TableCell>
+                    <TableCell><Input value={r.description} onChange={e => { const c = [...pdfRows]; c[i].description = e.target.value; setPdfRows(c); }} className="h-8" /></TableCell>
+                    <TableCell>
+                      <Select value={r.type} onValueChange={v => { const c = [...pdfRows]; c[i].type = v as any; setPdfRows(c); }}>
+                        <SelectTrigger className="h-8 w-[110px]"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="receita">Receita</SelectItem><SelectItem value="despesa">Despesa</SelectItem></SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input type="number" step="0.01" value={r.amount} onChange={e => { const c = [...pdfRows]; c[i].amount = Number(e.target.value); setPdfRows(c); }} className="h-8 text-right w-[120px] inline-block" />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPdfDialog(false)}>Cancelar</Button>
+            <Button onClick={confirmPdfImport} className="bg-gradient-gold text-primary-foreground">Confirmar Importação</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
