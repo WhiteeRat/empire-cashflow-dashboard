@@ -21,6 +21,7 @@ import {
   Users,
   Crown,
   LogOut,
+  Kanban,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ const items = [
   { title: "DRE Mensal", url: "/dre", icon: FileBarChart },
   { title: "Fluxo & Contas", url: "/fluxo", icon: Wallet },
   { title: "Orçamentos & Agenda", url: "/orcamentos", icon: CalendarRange },
+  { title: "Produtividade", url: "/produtividade", icon: Kanban },
   { title: "Métricas Real x Previsto", url: "/metricas", icon: TrendingUp },
   { title: "Equipe & Fornecedores", url: "/equipe", icon: Users },
 ];

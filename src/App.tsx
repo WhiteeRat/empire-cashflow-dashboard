@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import DRE from "./pages/DRE";
 import FluxoCaixa from "./pages/FluxoCaixa";
 import Orcamentos from "./pages/Orcamentos";
+import Produtividade from "./pages/Produtividade";
 import Metricas from "./pages/Metricas";
 import Equipe from "./pages/Equipe";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/dre" element={<ProtectedRoute><AppLayout><DRE /></AppLayout></ProtectedRoute>} />
             <Route path="/fluxo" element={<ProtectedRoute><AppLayout><FluxoCaixa /></AppLayout></ProtectedRoute>} />
             <Route path="/orcamentos" element={<ProtectedRoute><AppLayout><Orcamentos /></AppLayout></ProtectedRoute>} />
+            <Route path="/produtividade" element={<ProtectedRoute><AppLayout><Produtividade /></AppLayout></ProtectedRoute>} />
             <Route path="/metricas" element={<ProtectedRoute><AppLayout><Metricas /></AppLayout></ProtectedRoute>} />
             <Route path="/equipe" element={<ProtectedRoute><AppLayout><Equipe /></AppLayout></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />

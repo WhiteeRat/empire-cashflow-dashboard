@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { fmtBRL, fmtDate } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -23,15 +23,17 @@ const AGENDA_TAGS = [
   { v: "ENTREGA", c: "bg-warning/20 text-warning border-warning/30" },
 ];
 
+const empty = {
+  id: "", client: "", client_type: "PJ", city: "", product: "",
+  start_date: "", end_date: "", agenda_tag: "ORÇAMENTO", status: "pendente",
+  cost: "", margin_percent: "30", pay_commission: false, signal_value: "",
+};
+
 export default function Orcamentos() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<any>({
-    client: "", client_type: "PJ", city: "", product: "",
-    start_date: "", end_date: "", agenda_tag: "ORÇAMENTO", status: "pendente",
-    cost: "", margin_percent: "30", pay_commission: false, signal_value: "",
-  });
+  const [form, setForm] = useState<any>({ ...empty });
 
   const load = async () => {
     const { data } = await supabase.from("budgets").select("*").order("start_date", { ascending: false });
@@ -46,19 +48,45 @@ export default function Orcamentos() {
     return { sale, markup, profit };
   };
 
+  const openNew = () => { setForm({ ...empty }); setOpen(true); };
+  const openEdit = (b: any) => {
+    setForm({
+      id: b.id, client: b.client, client_type: b.client_type || "PJ", city: b.city || "", product: b.product,
+      start_date: b.start_date || "", end_date: b.end_date || "", agenda_tag: b.agenda_tag || "ORÇAMENTO", status: b.status || "pendente",
+      cost: String(b.cost ?? ""), margin_percent: String(b.margin_percent ?? "30"),
+      pay_commission: !!b.pay_commission, signal_value: String(b.signal_value ?? ""),
+    });
+    setOpen(true);
+  };
+
   const save = async () => {
     if (!form.client || !form.product) return toast.error("Pessoa e produto obrigatórios");
     const cost = Number(form.cost) || 0;
     const margin = Number(form.margin_percent) || 0;
     const { sale, markup, profit } = compute(cost, margin);
-    const { error } = await supabase.from("budgets").insert({
-      ...form, cost, margin_percent: margin, sale_value: sale, markup, net_profit: profit,
+    const payload = {
+      client: form.client as string,
+      client_type: form.client_type as string,
+      city: (form.city || null) as string | null,
+      product: form.product as string,
+      start_date: (form.start_date || null) as string | null,
+      end_date: (form.end_date || null) as string | null,
+      agenda_tag: (form.agenda_tag || null) as string | null,
+      status: form.status as string,
+      cost,
+      margin_percent: margin,
+      sale_value: sale,
+      markup,
+      net_profit: profit,
+      pay_commission: !!form.pay_commission,
       signal_value: Number(form.signal_value) || 0,
-      start_date: form.start_date || null, end_date: form.end_date || null,
-      user_id: user!.id,
-    });
-    if (error) toast.error(error.message);
-    else { toast.success("Orçamento salvo"); setOpen(false); load(); }
+    };
+    const { error } = form.id
+      ? await supabase.from("budgets").update(payload).eq("id", form.id)
+      : await supabase.from("budgets").insert({ ...payload, user_id: user!.id });
+    if (error) return toast.error(error.message);
+    toast.success(form.id ? "Atualizado" : "Orçamento salvo");
+    setOpen(false); load();
   };
 
   const toggleDone = async (id: string, done: boolean) => {
@@ -67,7 +95,6 @@ export default function Orcamentos() {
   const del = async (id: string) => { await supabase.from("budgets").delete().eq("id", id); load(); };
 
   const tagClass = (t: string) => AGENDA_TAGS.find(a => a.v === t)?.c || "bg-muted text-muted-foreground";
-
   const previewSale = compute(Number(form.cost) || 0, Number(form.margin_percent) || 0);
 
   return (
@@ -77,9 +104,9 @@ export default function Orcamentos() {
         subtitle="CRM, produtividade e controle de contas"
         actions={
           <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Novo Orçamento</Button></DialogTrigger>
+            <DialogTrigger asChild><Button onClick={openNew} className="bg-gradient-gold text-primary-foreground gap-2"><Plus className="h-4 w-4" /> Novo Orçamento</Button></DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>Novo Orçamento / Conta</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{form.id ? "Editar Orçamento" : "Novo Orçamento / Conta"}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-3">
                   <div><Label>Pessoa</Label><Input value={form.client} onChange={e => setForm({ ...form, client: e.target.value })} /></div>
@@ -129,7 +156,7 @@ export default function Orcamentos() {
                 <TableHead>Início</TableHead><TableHead>Fim</TableHead><TableHead>Agenda</TableHead>
                 <TableHead className="text-right">Custo</TableHead><TableHead className="text-right">Venda</TableHead>
                 <TableHead className="text-right">Lucro</TableHead><TableHead className="text-right">Sinal</TableHead>
-                <TableHead className="text-center">OK</TableHead><TableHead></TableHead>
+                <TableHead className="text-center">OK</TableHead><TableHead className="w-24"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -147,7 +174,10 @@ export default function Orcamentos() {
                   <TableCell className="text-right tabular-nums text-success font-medium">{fmtBRL(b.net_profit)}</TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">{fmtBRL(b.signal_value)}</TableCell>
                   <TableCell className="text-center"><Checkbox checked={b.done} onCheckedChange={(v) => toggleDone(b.id, !!v)} /></TableCell>
-                  <TableCell><Button size="icon" variant="ghost" onClick={() => del(b.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button></TableCell>
+                  <TableCell className="flex gap-1">
+                    <Button size="icon" variant="ghost" onClick={() => openEdit(b)}><Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" /></Button>
+                    <Button size="icon" variant="ghost" onClick={() => del(b.id)}><Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" /></Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
