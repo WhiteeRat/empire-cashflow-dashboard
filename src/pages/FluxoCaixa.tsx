@@ -96,7 +96,7 @@ export default function FluxoCaixa() {
 
   const inlineUpdateTx = async (id: string, field: string, value: any) => {
     const v = field === "amount" ? Number(value) : value;
-    await supabase.from("transactions").update({ [field]: v }).eq("id", id);
+    await (supabase.from("transactions") as any).update({ [field]: v }).eq("id", id);
     setInlineEdit(null); load();
   };
 
@@ -108,9 +108,12 @@ export default function FluxoCaixa() {
   };
   const savePay = async () => {
     if (!payForm.description || !payForm.amount) return toast.error("Preencha descrição e valor");
-    const payload: AnyRec = {
-      category: payForm.category, priority: payForm.priority, description: payForm.description,
-      amount: Number(payForm.amount), due_date: payForm.due_date || null,
+    const payload = {
+      category: payForm.category as string,
+      priority: payForm.priority as string,
+      description: payForm.description as string,
+      amount: Number(payForm.amount),
+      due_date: (payForm.due_date || null) as string | null,
     };
     const { error } = payForm.id
       ? await supabase.from("payables").update(payload).eq("id", payForm.id)
@@ -130,9 +133,12 @@ export default function FluxoCaixa() {
   };
   const saveRec = async () => {
     if (!recForm.client || !recForm.amount) return toast.error("Preencha pessoa e valor");
-    const payload: AnyRec = {
-      client: recForm.client, project: recForm.project || null, due_date: recForm.due_date || null,
-      cost: Number(recForm.cost) || 0, amount: Number(recForm.amount),
+    const payload = {
+      client: recForm.client as string,
+      project: (recForm.project || null) as string | null,
+      due_date: (recForm.due_date || null) as string | null,
+      cost: Number(recForm.cost) || 0,
+      amount: Number(recForm.amount),
     };
     const { error } = recForm.id
       ? await supabase.from("receivables").update(payload).eq("id", recForm.id)
