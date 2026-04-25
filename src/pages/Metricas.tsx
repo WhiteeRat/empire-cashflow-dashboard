@@ -48,7 +48,7 @@ export default function Metricas() {
   };
 
   const updateRow = async (id: string, field: string, value: number) => {
-    await supabase.from("metrics").update({ [field]: value }).eq("id", id);
+    await supabase.from("metrics").update({ [field]: value } as any).eq("id", id);
     load();
   };
   const del = async (id: string) => { await supabase.from("metrics").delete().eq("id", id); load(); };
