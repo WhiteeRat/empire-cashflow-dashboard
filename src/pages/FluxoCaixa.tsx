@@ -77,9 +77,13 @@ export default function FluxoCaixa() {
   };
   const saveTx = async () => {
     if (!txForm.description || !txForm.amount) return toast.error("Preencha descrição e valor");
-    const payload: AnyRec = {
-      date: txForm.date, description: txForm.description, category: txForm.category || null,
-      type: txForm.type, amount: Number(txForm.amount), bank_id: txForm.bank_id || null,
+    const payload = {
+      date: txForm.date as string,
+      description: txForm.description as string,
+      category: (txForm.category || null) as string | null,
+      type: txForm.type as string,
+      amount: Number(txForm.amount),
+      bank_id: (txForm.bank_id || null) as string | null,
     };
     const { error } = txForm.id
       ? await supabase.from("transactions").update(payload).eq("id", txForm.id)
