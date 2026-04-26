@@ -256,6 +256,36 @@ export type Database = {
           },
         ]
       }
+      income_statement_audit: {
+        Row: {
+          action: string
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          id: string
+          statement_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          id?: string
+          statement_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          id?: string
+          statement_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       income_statements: {
         Row: {
           base_year: number
@@ -396,28 +426,123 @@ export type Database = {
         }
         Relationships: []
       }
-      partners: {
+      partner_distributions: {
         Row: {
-          company_id: string | null
+          amount: number
           created_at: string
+          distribution_id: string
           id: string
-          name: string
+          partner_id: string
+          partner_name: string
           share_percent: number
           user_id: string
         }
         Insert: {
-          company_id?: string | null
+          amount?: number
           created_at?: string
+          distribution_id: string
           id?: string
-          name: string
+          partner_id: string
+          partner_name: string
           share_percent?: number
           user_id: string
         }
         Update: {
+          amount?: number
+          created_at?: string
+          distribution_id?: string
+          id?: string
+          partner_id?: string
+          partner_name?: string
+          share_percent?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_distributions_distribution_id_fkey"
+            columns: ["distribution_id"]
+            isOneToOne: false
+            referencedRelation: "profit_distributions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_withdrawals: {
+        Row: {
+          amount: number
+          applied_to_prolabore: boolean
+          bank_id: string | null
+          company_id: string | null
+          created_at: string
+          date: string
+          id: string
+          notes: string | null
+          partner_id: string
+          partner_name: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          applied_to_prolabore?: boolean
+          bank_id?: string | null
           company_id?: string | null
           created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          partner_id: string
+          partner_name: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          applied_to_prolabore?: boolean
+          bank_id?: string | null
+          company_id?: string | null
+          created_at?: string
+          date?: string
+          id?: string
+          notes?: string | null
+          partner_id?: string
+          partner_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      partners: {
+        Row: {
+          active: boolean
+          company_id: string | null
+          created_at: string
+          document: string | null
+          id: string
+          name: string
+          pro_labore: number
+          role: string | null
+          share_percent: number
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          company_id?: string | null
+          created_at?: string
+          document?: string | null
+          id?: string
+          name: string
+          pro_labore?: number
+          role?: string | null
+          share_percent?: number
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string | null
+          created_at?: string
+          document?: string | null
           id?: string
           name?: string
+          pro_labore?: number
+          role?: string | null
           share_percent?: number
           user_id?: string
         }
@@ -501,6 +626,60 @@ export type Database = {
           email?: string | null
           id?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profit_distributions: {
+        Row: {
+          company_id: string | null
+          costs: number
+          created_at: string
+          expenses: number
+          id: string
+          mode: string
+          net_profit: number
+          notes: string | null
+          period_end: string
+          period_label: string
+          period_start: string
+          revenue: number
+          taxes: number
+          total_distributed: number
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          costs?: number
+          created_at?: string
+          expenses?: number
+          id?: string
+          mode?: string
+          net_profit?: number
+          notes?: string | null
+          period_end: string
+          period_label: string
+          period_start: string
+          revenue?: number
+          taxes?: number
+          total_distributed?: number
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          costs?: number
+          created_at?: string
+          expenses?: number
+          id?: string
+          mode?: string
+          net_profit?: number
+          notes?: string | null
+          period_end?: string
+          period_label?: string
+          period_start?: string
+          revenue?: number
+          taxes?: number
+          total_distributed?: number
           user_id?: string
         }
         Relationships: []
@@ -816,6 +995,7 @@ export type Database = {
           active_company_id: string | null
           created_at: string
           id: string
+          link_accounting_to_dashboard: boolean
           popup_show_agenda: boolean
           popup_show_budgets: boolean
           popup_show_payables: boolean
@@ -828,6 +1008,7 @@ export type Database = {
           active_company_id?: string | null
           created_at?: string
           id?: string
+          link_accounting_to_dashboard?: boolean
           popup_show_agenda?: boolean
           popup_show_budgets?: boolean
           popup_show_payables?: boolean
@@ -840,6 +1021,7 @@ export type Database = {
           active_company_id?: string | null
           created_at?: string
           id?: string
+          link_accounting_to_dashboard?: boolean
           popup_show_agenda?: boolean
           popup_show_budgets?: boolean
           popup_show_payables?: boolean
