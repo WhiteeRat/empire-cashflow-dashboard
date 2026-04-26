@@ -14,6 +14,7 @@ type Settings = {
   popup_show_payables: boolean;
   popup_show_receivables: boolean;
   popup_show_agenda: boolean;
+  link_accounting_to_dashboard: boolean;
 };
 
 const defaults: Settings = {
@@ -22,6 +23,7 @@ const defaults: Settings = {
   popup_show_payables: true,
   popup_show_receivables: true,
   popup_show_agenda: true,
+  link_accounting_to_dashboard: false,
 };
 
 /**
@@ -44,6 +46,7 @@ export function SettingsDialog() {
           popup_show_payables: data.popup_show_payables,
           popup_show_receivables: data.popup_show_receivables,
           popup_show_agenda: data.popup_show_agenda,
+          link_accounting_to_dashboard: (data as any).link_accounting_to_dashboard ?? false,
         });
       }
     })();
