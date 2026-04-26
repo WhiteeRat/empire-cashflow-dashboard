@@ -32,6 +32,7 @@ const empty = {
   start_date: "", end_date: "", agenda_tag: "ORÇAMENTO", status: "pendente",
   cost: "", margin_percent: "30", pay_commission: false, signal_value: "",
   commission_name: "", commission_percent: "0",
+  payment_method: "", discount_cash: "",
 };
 
 export default function Orcamentos() {
