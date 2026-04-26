@@ -303,6 +303,7 @@ export default function FluxoCaixa() {
           <TabsTrigger value="fluxo">Fluxo de Caixa</TabsTrigger>
           <TabsTrigger value="pagar">Contas a Pagar ({payables.filter(p => !p.paid).length})</TabsTrigger>
           <TabsTrigger value="receber">Contas a Receber ({receivables.filter(r => !r.received).length})</TabsTrigger>
+          <TabsTrigger value="sangria">Sangria ({withdrawals.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fluxo" className="space-y-4 mt-4">
