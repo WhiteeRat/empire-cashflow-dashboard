@@ -102,8 +102,17 @@ export function exportBudgetPdf(d: BudgetPdfData) {
     doc.text("CONDIÇÕES DE PAGAMENTO", margin, bY + 12);
     doc.setFont("helvetica", "normal");
     let cY = bY + 28;
+    // Largura útil para o texto de pagamento (deixa espaço lateral antes do box do total)
+    const payMaxWidth = boxX - margin - 20;
     if (d.paymentMethod) {
-      doc.text(`Forma de pagamento: ${d.paymentMethod}`, margin, cY); cY += 14;
+      const label = "Forma de pagamento: ";
+      const labelWidth = doc.getTextWidth(label);
+      // Quebra a string longa em múltiplas linhas respeitando a largura disponível
+      const lines: string[] = doc.splitTextToSize(d.paymentMethod, payMaxWidth - labelWidth) as string[];
+      doc.text(label + (lines[0] ?? ""), margin, cY); cY += 14;
+      for (let i = 1; i < lines.length; i++) {
+        doc.text(lines[i], margin + labelWidth, cY); cY += 14;
+      }
     }
     if (hasSignal) {
       doc.text(`Sinal: ${fmtBRL(d.signalValue!)}`, margin, cY); cY += 14;

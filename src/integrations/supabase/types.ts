@@ -256,6 +256,63 @@ export type Database = {
           },
         ]
       }
+      income_statements: {
+        Row: {
+          base_year: number
+          company_id: string | null
+          contributions: number
+          created_at: string
+          exempt_income: number
+          id: string
+          ir_withheld: number
+          notes: string | null
+          origin: string
+          raw_data: Json | null
+          source_cnpj: string | null
+          source_name: string
+          status: string
+          taxable_income: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_year?: number
+          company_id?: string | null
+          contributions?: number
+          created_at?: string
+          exempt_income?: number
+          id?: string
+          ir_withheld?: number
+          notes?: string | null
+          origin?: string
+          raw_data?: Json | null
+          source_cnpj?: string | null
+          source_name: string
+          status?: string
+          taxable_income?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_year?: number
+          company_id?: string | null
+          contributions?: number
+          created_at?: string
+          exempt_income?: number
+          id?: string
+          ir_withheld?: number
+          notes?: string | null
+          origin?: string
+          raw_data?: Json | null
+          source_cnpj?: string | null
+          source_name?: string
+          status?: string
+          taxable_income?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       metrics: {
         Row: {
           budget_amount: number
@@ -296,6 +353,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nf_records: {
+        Row: {
+          amount: number
+          client: string | null
+          company_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          issue_date: string
+          number: string | null
+          receivable_id: string | null
+          series: string | null
+          user_id: string
+        }
+        Insert: {
+          amount?: number
+          client?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          issue_date?: string
+          number?: string | null
+          receivable_id?: string | null
+          series?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          client?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          issue_date?: string
+          number?: string | null
+          receivable_id?: string | null
+          series?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       partners: {
         Row: {
@@ -549,6 +648,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tax_settings: {
+        Row: {
+          alert_red_percent: number
+          alert_yellow_percent: number
+          annual_limit: number
+          cnae_main: string | null
+          cnae_secondary: string[] | null
+          company_id: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          regime: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_red_percent?: number
+          alert_yellow_percent?: number
+          annual_limit?: number
+          cnae_main?: string | null
+          cnae_secondary?: string[] | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          regime?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_red_percent?: number
+          alert_yellow_percent?: number
+          annual_limit?: number
+          cnae_main?: string | null
+          cnae_secondary?: string[] | null
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          regime?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       time_entries: {
         Row: {
