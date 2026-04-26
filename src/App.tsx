@@ -16,6 +16,7 @@ import Orcamentos from "./pages/Orcamentos";
 import Produtividade from "./pages/Produtividade";
 import Metricas from "./pages/Metricas";
 import Equipe from "./pages/Equipe";
+import Contabilidade from "./pages/Contabilidade";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/produtividade" element={<ProtectedRoute><AppLayout><Produtividade /></AppLayout></ProtectedRoute>} />
             <Route path="/metricas" element={<ProtectedRoute><AppLayout><Metricas /></AppLayout></ProtectedRoute>} />
             <Route path="/equipe" element={<ProtectedRoute><AppLayout><Equipe /></AppLayout></ProtectedRoute>} />
+            <Route path="/contabilidade" element={<ProtectedRoute><AppLayout><Contabilidade /></AppLayout></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </CompanyProvider>

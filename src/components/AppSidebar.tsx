@@ -22,6 +22,7 @@ import {
   Crown,
   LogOut,
   Kanban,
+  Calculator,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ const items = [
   { title: "Produtividade", url: "/produtividade", icon: Kanban },
   { title: "Métricas Real x Previsto", url: "/metricas", icon: TrendingUp },
   { title: "Equipe & Fornecedores", url: "/equipe", icon: Users },
+  { title: "Contabilidade", url: "/contabilidade", icon: Calculator },
 ];
 
 export function AppSidebar() {
