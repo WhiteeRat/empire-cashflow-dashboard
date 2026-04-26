@@ -163,7 +163,7 @@ export default function Dashboard() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard title="Faturamento" value={fmtBRL(receita)} icon={TrendingUp} tone="success" hint={linkAccounting ? `Inclui ${fmtBRL(accountingRevenue)} contábil` : "Total de receitas"} />
         <StatCard title="Despesas & Custos" value={fmtBRL(despesa)} icon={TrendingDown} tone="destructive" hint="Saídas operacionais" />
         <StatCard title="Lucro Líquido" value={fmtBRL(lucro)} icon={Coins} tone="gold" hint={`Margem ${receita ? ((lucro / receita) * 100).toFixed(1) : 0}%`} />
