@@ -375,18 +375,54 @@ export default function Contabilidade() {
                       <TableHead className="text-right">Isento</TableHead>
                       <TableHead className="text-right">IR retido</TableHead>
                       <TableHead>Origem</TableHead>
+                      <TableHead className="w-28"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {statements.map(s => (
                       <TableRow key={s.id}>
-                        <TableCell>{s.base_year}</TableCell>
-                        <TableCell>{s.source_name}</TableCell>
+                        <TableCell>
+                          <Input type="number" defaultValue={s.base_year} className="h-8 w-20"
+                            onBlur={async e => {
+                              const v = Number(e.target.value);
+                              if (v === s.base_year) return;
+                              await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "update", before_data: s, after_data: { ...s, base_year: v } });
+                              await supabase.from("income_statements").update({ base_year: v }).eq("id", s.id);
+                              toast.success("Atualizado"); load();
+                            }} />
+                        </TableCell>
+                        <TableCell>
+                          <Input defaultValue={s.source_name} className="h-8"
+                            onBlur={async e => {
+                              const v = e.target.value;
+                              if (v === s.source_name) return;
+                              await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "update", before_data: s, after_data: { ...s, source_name: v } });
+                              await supabase.from("income_statements").update({ source_name: v }).eq("id", s.id);
+                              load();
+                            }} />
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{s.source_cnpj || "—"}</TableCell>
-                        <TableCell className="text-right tabular-nums">{fmtBRL(s.taxable_income)}</TableCell>
+                        <TableCell className="text-right">
+                          <Input type="number" step="0.01" defaultValue={s.taxable_income} className="h-8 w-28 text-right ml-auto"
+                            onBlur={async e => {
+                              const v = Number(e.target.value);
+                              if (v === Number(s.taxable_income)) return;
+                              await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "update", before_data: s, after_data: { ...s, taxable_income: v } });
+                              await supabase.from("income_statements").update({ taxable_income: v }).eq("id", s.id);
+                              load();
+                            }} />
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{fmtBRL(s.exempt_income)}</TableCell>
                         <TableCell className="text-right tabular-nums">{fmtBRL(s.ir_withheld)}</TableCell>
                         <TableCell><Badge variant="outline" className="text-xs">{s.origin}</Badge></TableCell>
+                        <TableCell>
+                          <Button size="icon" variant="ghost" onClick={async () => {
+                            if (!confirm("Excluir este informe? O impacto no faturamento será revertido.")) return;
+                            await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "delete", before_data: s });
+                            await supabase.from("income_statements").delete().eq("id", s.id);
+                            toast.success("Excluído"); load();
+                          }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
