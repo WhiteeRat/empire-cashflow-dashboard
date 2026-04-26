@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Trash2, ArrowDownCircle, ArrowUpCircle, Pencil, FileText } from "lucide-react";
+import { Plus, Upload, Trash2, ArrowDownCircle, ArrowUpCircle, Pencil, FileText, HandCoins } from "lucide-react";
 import { fmtBRL, fmtDate } from "@/lib/format";
 import { importSheet } from "@/lib/exporter";
 import { parsePdfStatement, PdfRow } from "@/lib/pdfImporter";
@@ -30,6 +30,14 @@ export default function FluxoCaixa() {
   const [payables, setPayables] = useState<AnyRec[]>([]);
   const [receivables, setReceivables] = useState<AnyRec[]>([]);
   const [banks, setBanks] = useState<AnyRec[]>([]);
+  const [partners, setPartners] = useState<AnyRec[]>([]);
+  const [withdrawals, setWithdrawals] = useState<AnyRec[]>([]);
+
+  const [wOpen, setWOpen] = useState(false);
+  const [wForm, setWForm] = useState<AnyRec>({
+    id: "", partner_id: "", date: new Date().toISOString().slice(0, 10),
+    amount: "", notes: "", bank_id: "", applied_to_prolabore: true,
+  });
 
   const [txDialog, setTxDialog] = useState(false);
   const [payDialog, setPayDialog] = useState(false);
