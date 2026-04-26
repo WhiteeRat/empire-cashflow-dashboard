@@ -28,7 +28,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
               </div>
             </div>
           </header>
-          <main className="flex-1 p-4 md:p-6 lg:p-8 animate-fade-in">{children}</main>
+          <main className="flex-1 p-4 md:p-6 lg:p-8 animate-fade-in min-w-0 overflow-x-hidden">{children}</main>
           <PendingPopup />
         </div>
       </div>
