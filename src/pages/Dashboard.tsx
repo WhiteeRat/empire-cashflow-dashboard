@@ -92,6 +92,29 @@ export default function Dashboard() {
     else { toast.success("Banco adicionado"); setBankDialog(false); setBankForm({ name: "", balance: "" }); load(); }
   };
 
+  /** Inicia edição inline do saldo de um banco */
+  const startEditBank = (b: Bank) => {
+    setEditBankId(b.id);
+    setEditBankBalance(String(b.balance));
+  };
+
+  /** Salva o novo saldo do banco no banco de dados */
+  const saveBankBalance = async (id: string) => {
+    const newBalance = Number(editBankBalance);
+    if (Number.isNaN(newBalance)) { toast.error("Saldo inválido"); return; }
+    const { error } = await supabase.from("banks").update({ balance: newBalance }).eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Saldo atualizado"); setEditBankId(null); load(); }
+  };
+
+  /** Exclui o banco após confirmação do usuário */
+  const deleteBank = async (b: Bank) => {
+    if (!confirm(`Excluir o banco "${b.name}"? Essa ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("banks").delete().eq("id", b.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Banco excluído"); load(); }
+  };
+
   const addPartner = async () => {
     if (!partnerForm.name || !user) return;
     const { error } = await supabase.from("partners").insert({ name: partnerForm.name, share_percent: Number(partnerForm.share_percent) || 0, user_id: user.id });
