@@ -11,18 +11,20 @@ export type BudgetPdfData = {
   product: string;
   startDate?: string;
   endDate?: string;
+  /** Linhas de custo (descrição visível ao cliente). */
   costs: { description: string; amount: number }[];
-  costTotal: number;
+  /** Valor final a ser pago pelo cliente. */
   saleValue: number;
-  marginPercent: number;
-  signalValue: number;
-  commissionName?: string;
-  commissionPercent?: number;
-  commissionValue?: number;
-  netProfit: number;
-  showCommission?: boolean;
+  signalValue?: number;
+  paymentMethod?: string;
+  discountCash?: number;
 };
 
+/**
+ * PDF voltado ao CLIENTE: mostra apenas os custos descritos pelo usuário,
+ * o valor final, sinal (se houver), forma de pagamento e desconto à vista.
+ * Não inclui margem, comissão ou lucro líquido (dados internos).
+ */
 export function exportBudgetPdf(d: BudgetPdfData) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -30,7 +32,7 @@ export function exportBudgetPdf(d: BudgetPdfData) {
   let y = margin;
 
   // Header bar
-  doc.setFillColor(15, 23, 42); // dark slate
+  doc.setFillColor(15, 23, 42);
   doc.rect(0, 0, pageWidth, 70, "F");
   doc.setTextColor(96, 165, 250);
   doc.setFont("helvetica", "bold");
@@ -70,7 +72,7 @@ export function exportBudgetPdf(d: BudgetPdfData) {
   }
   y += 10;
 
-  // Costs table
+  // Costs / itens table (descrições visíveis ao cliente)
   if (d.costs.length > 0) {
     autoTable(doc, {
       startY: y,
@@ -84,43 +86,51 @@ export function exportBudgetPdf(d: BudgetPdfData) {
     y = (doc as any).lastAutoTable.finalY + 10;
   }
 
-  // Totals box
-  const boxX = pageWidth - margin - 250;
-  const boxW = 250;
-  doc.setDrawColor(59, 130, 246);
-  doc.setLineWidth(0.8);
-  let bY = y;
-  const line = (label: string, value: string, bold = false, color?: [number, number, number]) => {
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setFontSize(10);
-    if (color) doc.setTextColor(...color); else doc.setTextColor(15, 23, 42);
-    doc.text(label, boxX + 10, bY + 14);
-    doc.text(value, boxX + boxW - 10, bY + 14, { align: "right" });
-    bY += 18;
-  };
+  // Pagamento
+  const hasSignal = (d.signalValue || 0) > 0;
+  const hasDiscount = (d.discountCash || 0) > 0;
+  const valueAfterDiscount = d.saleValue - (d.discountCash || 0);
 
-  doc.setFillColor(241, 245, 249);
-  const lines = 3 + (d.signalValue ? 1 : 0) + (d.showCommission && d.commissionValue ? 1 : 0) + 1;
-  doc.rect(boxX, bY, boxW, lines * 18 + 8, "FD");
-  bY += 4;
-  line("Custo total", fmtBRL(d.costTotal));
-  line("Margem", `${d.marginPercent.toFixed(1)}%`);
-  if (d.showCommission && d.commissionValue) {
-    line(`Comissão (${(d.commissionPercent || 0).toFixed(1)}%)`, fmtBRL(d.commissionValue), false, [217, 119, 6]);
+  const boxX = pageWidth - margin - 260;
+  const boxW = 260;
+  let bY = y;
+
+  if (d.paymentMethod || hasSignal || hasDiscount) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(15, 23, 42);
+    doc.text("CONDIÇÕES DE PAGAMENTO", margin, bY + 12);
+    doc.setFont("helvetica", "normal");
+    let cY = bY + 28;
+    if (d.paymentMethod) {
+      doc.text(`Forma de pagamento: ${d.paymentMethod}`, margin, cY); cY += 14;
+    }
+    if (hasSignal) {
+      doc.text(`Sinal: ${fmtBRL(d.signalValue!)}`, margin, cY); cY += 14;
+    }
+    if (hasDiscount) {
+      doc.setTextColor(22, 163, 74);
+      doc.text(`Desconto à vista: ${fmtBRL(d.discountCash!)}`, margin, cY); cY += 14;
+      doc.setTextColor(15, 23, 42);
+    }
+    bY = Math.max(bY, cY) + 6;
   }
-  if (d.signalValue) line("Sinal", fmtBRL(d.signalValue), false, [100, 116, 139]);
-  line("Lucro líquido", fmtBRL(d.netProfit), true, [22, 163, 74]);
 
   // Highlight final value
-  bY += 14;
   doc.setFillColor(59, 130, 246);
-  doc.rect(boxX, bY, boxW, 36, "F");
+  doc.rect(boxX, bY, boxW, 50, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text("VALOR TOTAL", boxX + 10, bY + 22);
-  doc.setFontSize(16);
-  doc.text(fmtBRL(d.saleValue), boxX + boxW - 10, bY + 24, { align: "right" });
+  doc.text("VALOR TOTAL", boxX + 12, bY + 22);
+  doc.setFontSize(18);
+  doc.text(fmtBRL(d.saleValue), boxX + boxW - 12, bY + 24, { align: "right" });
+
+  if (hasDiscount) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`À vista: ${fmtBRL(valueAfterDiscount)}`, boxX + boxW - 12, bY + 42, { align: "right" });
+  }
 
   // Footer
   doc.setFont("helvetica", "italic");

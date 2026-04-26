@@ -32,6 +32,7 @@ const empty = {
   start_date: "", end_date: "", agenda_tag: "ORÇAMENTO", status: "pendente",
   cost: "", margin_percent: "30", pay_commission: false, signal_value: "",
   commission_name: "", commission_percent: "0",
+  payment_method: "", discount_cash: "",
 };
 
 export default function Orcamentos() {
@@ -73,6 +74,7 @@ export default function Orcamentos() {
       cost: String(b.cost ?? ""), margin_percent: String(b.margin_percent ?? "30"),
       pay_commission: !!b.pay_commission, signal_value: String(b.signal_value ?? ""),
       commission_name: b.commission_name || "", commission_percent: String(b.commission_percent ?? "0"),
+      payment_method: b.payment_method || "", discount_cash: String(b.discount_cash ?? ""),
     });
     const { data } = await supabase.from("budget_costs").select("*").eq("budget_id", b.id).order("created_at");
     setCosts((data || []).map(c => ({ id: c.id, description: c.description, amount: String(c.amount), category: c.category })));
@@ -95,6 +97,8 @@ export default function Orcamentos() {
       commission_name: form.commission_name || null,
       commission_percent: commissionPercent,
       commission_value: commissionValue,
+      payment_method: form.payment_method || null,
+      discount_cash: Number(form.discount_cash) || 0,
       company_id: activeCompany?.id || null,
     };
     let budgetId = form.id;
@@ -134,7 +138,6 @@ export default function Orcamentos() {
   const exportPdf = async (b: any) => {
     const { data: cs } = await supabase.from("budget_costs").select("*").eq("budget_id", b.id).order("created_at");
     const list = (cs || []).map(c => ({ description: c.description, amount: Number(c.amount) }));
-    const costTotal = list.length > 0 ? list.reduce((s, c) => s + c.amount, 0) : Number(b.cost) || 0;
     const finalCosts = list.length > 0 ? list : (Number(b.cost) > 0 ? [{ description: "Custo previsto", amount: Number(b.cost) }] : []);
     exportBudgetPdf({
       companyName: activeCompany?.name,
@@ -146,15 +149,10 @@ export default function Orcamentos() {
       startDate: b.start_date,
       endDate: b.end_date,
       costs: finalCosts,
-      costTotal,
       saleValue: Number(b.sale_value) || 0,
-      marginPercent: Number(b.margin_percent) || 0,
       signalValue: Number(b.signal_value) || 0,
-      commissionName: b.commission_name,
-      commissionPercent: Number(b.commission_percent) || 0,
-      commissionValue: Number(b.commission_value) || 0,
-      netProfit: Number(b.net_profit) || 0,
-      showCommission: !!b.pay_commission || !!b.commission_name,
+      paymentMethod: b.payment_method || undefined,
+      discountCash: Number(b.discount_cash) || 0,
     });
   };
 
@@ -250,6 +248,24 @@ export default function Orcamentos() {
                   <div><span className="text-muted-foreground text-xs block">Lucro Líquido</span><span className="font-display text-lg text-success">{fmtBRL(profit)}</span></div>
                 </div>
                 <div className="flex items-center gap-2"><Checkbox checked={form.pay_commission} onCheckedChange={v => setForm({ ...form, pay_commission: !!v })} id="comm" /><Label htmlFor="comm" className="cursor-pointer">Incluir comissão no PDF do orçamento</Label></div>
+
+                {/* Forma de pagamento (visível ao cliente no PDF) */}
+                <div className="pt-2 border-t border-border/40">
+                  <Label className="text-sm font-medium block mb-2">Pagamento (aparece no PDF do cliente)</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <Label className="text-xs">Forma de pagamento</Label>
+                      <Input value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} placeholder="Ex: 50% sinal + 50% na entrega, 3x cartão, à vista..." />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Desconto à vista (R$)</Label>
+                      <Input type="number" step="0.01" value={form.discount_cash} onChange={e => setForm({ ...form, discount_cash: e.target.value })} placeholder="0,00" />
+                    </div>
+                  </div>
+                  {Number(form.discount_cash) > 0 && (
+                    <div className="text-right text-sm mt-2 text-success">Valor à vista: <span className="font-medium">{fmtBRL(sale - (Number(form.discount_cash) || 0))}</span></div>
+                  )}
+                </div>
               </div>
               <DialogFooter><Button onClick={save} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
             </DialogContent>

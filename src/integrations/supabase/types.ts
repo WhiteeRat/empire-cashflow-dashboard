@@ -99,6 +99,7 @@ export type Database = {
           company_id: string | null
           cost: number
           created_at: string
+          discount_cash: number
           done: boolean
           end_date: string | null
           id: string
@@ -106,6 +107,7 @@ export type Database = {
           markup: number
           net_profit: number
           pay_commission: boolean
+          payment_method: string | null
           product: string
           sale_value: number
           signal_value: number
@@ -124,6 +126,7 @@ export type Database = {
           company_id?: string | null
           cost?: number
           created_at?: string
+          discount_cash?: number
           done?: boolean
           end_date?: string | null
           id?: string
@@ -131,6 +134,7 @@ export type Database = {
           markup?: number
           net_profit?: number
           pay_commission?: boolean
+          payment_method?: string | null
           product: string
           sale_value?: number
           signal_value?: number
@@ -149,6 +153,7 @@ export type Database = {
           company_id?: string | null
           cost?: number
           created_at?: string
+          discount_cash?: number
           done?: boolean
           end_date?: string | null
           id?: string
@@ -156,6 +161,7 @@ export type Database = {
           markup?: number
           net_profit?: number
           pay_commission?: boolean
+          payment_method?: string | null
           product?: string
           sale_value?: number
           signal_value?: number
