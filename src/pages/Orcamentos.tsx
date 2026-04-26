@@ -97,6 +97,8 @@ export default function Orcamentos() {
       commission_name: form.commission_name || null,
       commission_percent: commissionPercent,
       commission_value: commissionValue,
+      payment_method: form.payment_method || null,
+      discount_cash: Number(form.discount_cash) || 0,
       company_id: activeCompany?.id || null,
     };
     let budgetId = form.id;
