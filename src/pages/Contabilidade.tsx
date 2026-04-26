@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCompany, applyCompanyFilter } from "@/contexts/CompanyContext";
+import { useCompany } from "@/contexts/CompanyContext";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -67,29 +67,24 @@ export default function Contabilidade() {
     if (!user) return;
     setLoadingSettings(true);
     // Settings desta empresa (ou geral)
-    const q = supabase.from("tax_settings").select("*").eq("user_id", user.id);
-    const { data: ts } = activeCompany
-      ? await q.eq("company_id", activeCompany.id).maybeSingle()
-      : await q.is("company_id", null).maybeSingle();
+    let tsQuery: any = supabase.from("tax_settings").select("*").eq("user_id", user.id);
+    tsQuery = activeCompany ? tsQuery.eq("company_id", activeCompany.id) : tsQuery.is("company_id", null);
+    const { data: ts } = await tsQuery.maybeSingle();
     if (ts) setSettings(ts as any);
     else setSettings(defaultSettings);
 
     // Faturamento do ano (somatório de receivables recebidos)
     const yearStart = `${new Date().getFullYear()}-01-01`;
-    const recQ = applyCompanyFilter(
-      supabase.from("receivables").select("amount").eq("received", true).gte("due_date", yearStart),
-      activeCompany?.id ?? null,
-    );
+    let recQ: any = supabase.from("receivables").select("amount").eq("received", true).gte("due_date", yearStart);
+    if (activeCompany) recQ = recQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: rec } = await recQ;
-    setRevenueYear((rec || []).reduce((s, r: any) => s + Number(r.amount || 0), 0));
+    setRevenueYear(((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0));
 
     // Histórico de informes
-    const stQ = applyCompanyFilter(
-      supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(50),
-      activeCompany?.id ?? null,
-    );
+    let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(50);
+    if (activeCompany) stQ = stQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: st } = await stQ;
-    setStatements(st || []);
+    setStatements((st as any[]) || []);
 
     setLoadingSettings(false);
   };
@@ -194,7 +189,7 @@ export default function Contabilidade() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Contabilidade" subtitle="Controle fiscal, informes de rendimentos e limites tributários" icon={Calculator} />
+      <PageHeader title="Contabilidade" subtitle="Controle fiscal, informes de rendimentos e limites tributários" />
 
       <Tabs defaultValue="dashboard" className="w-full">
         <TabsList>
