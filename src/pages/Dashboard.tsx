@@ -265,7 +265,7 @@ export default function Dashboard() {
                     </>
                   ) : (
                     <>
-                      <span className="font-display text-lg text-primary-glow">{fmtBRL(b.balance)}</span>
+                      <span className="font-display text-base sm:text-lg text-primary-glow break-all">{fmtBRL(b.balance)}</span>
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => startEditBank(b)} title="Editar saldo">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
