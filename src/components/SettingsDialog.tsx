@@ -14,6 +14,7 @@ type Settings = {
   popup_show_payables: boolean;
   popup_show_receivables: boolean;
   popup_show_agenda: boolean;
+  link_accounting_to_dashboard: boolean;
 };
 
 const defaults: Settings = {
@@ -22,6 +23,7 @@ const defaults: Settings = {
   popup_show_payables: true,
   popup_show_receivables: true,
   popup_show_agenda: true,
+  link_accounting_to_dashboard: false,
 };
 
 /**
@@ -44,6 +46,7 @@ export function SettingsDialog() {
           popup_show_payables: data.popup_show_payables,
           popup_show_receivables: data.popup_show_receivables,
           popup_show_agenda: data.popup_show_agenda,
+          link_accounting_to_dashboard: (data as any).link_accounting_to_dashboard ?? false,
         });
       }
     })();
@@ -92,6 +95,15 @@ export function SettingsDialog() {
           <div className="flex items-center justify-between">
             <Label>Agenda dos próximos 3 dias</Label>
             <Switch checked={s.popup_show_agenda} onCheckedChange={v => save({ popup_show_agenda: v })} />
+          </div>
+
+          <div className="text-xs uppercase tracking-widest text-muted-foreground pt-2 border-t border-border/40">Integrações</div>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <Label>Vincular faturamento contábil ao Dashboard</Label>
+              <span className="text-xs text-muted-foreground">Soma os informes de rendimentos importados à receita do Dashboard</span>
+            </div>
+            <Switch checked={s.link_accounting_to_dashboard} onCheckedChange={v => save({ link_accounting_to_dashboard: v })} />
           </div>
         </div>
       </DialogContent>

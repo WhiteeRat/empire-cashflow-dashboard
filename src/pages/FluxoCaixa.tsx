@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Upload, Trash2, ArrowDownCircle, ArrowUpCircle, Pencil, FileText } from "lucide-react";
+import { Plus, Upload, Trash2, ArrowDownCircle, ArrowUpCircle, Pencil, FileText, HandCoins } from "lucide-react";
 import { fmtBRL, fmtDate } from "@/lib/format";
 import { importSheet } from "@/lib/exporter";
 import { parsePdfStatement, PdfRow } from "@/lib/pdfImporter";
@@ -30,6 +30,14 @@ export default function FluxoCaixa() {
   const [payables, setPayables] = useState<AnyRec[]>([]);
   const [receivables, setReceivables] = useState<AnyRec[]>([]);
   const [banks, setBanks] = useState<AnyRec[]>([]);
+  const [partners, setPartners] = useState<AnyRec[]>([]);
+  const [withdrawals, setWithdrawals] = useState<AnyRec[]>([]);
+
+  const [wOpen, setWOpen] = useState(false);
+  const [wForm, setWForm] = useState<AnyRec>({
+    id: "", partner_id: "", date: new Date().toISOString().slice(0, 10),
+    amount: "", notes: "", bank_id: "", applied_to_prolabore: true,
+  });
 
   const [txDialog, setTxDialog] = useState(false);
   const [payDialog, setPayDialog] = useState(false);
@@ -55,19 +63,77 @@ export default function FluxoCaixa() {
   const [inlineEdit, setInlineEdit] = useState<{ id: string; field: string } | null>(null);
 
   const load = async () => {
-    const [t, p, r, b] = await Promise.all([
+    const [t, p, r, b, prt, wd] = await Promise.all([
       supabase.from("transactions").select("*").order("date", { ascending: false }),
       supabase.from("payables").select("*").order("due_date", { ascending: true }),
       supabase.from("receivables").select("*").order("due_date", { ascending: true }),
       supabase.from("banks").select("*"),
+      supabase.from("partners").select("*").order("name"),
+      supabase.from("partner_withdrawals").select("*").order("date", { ascending: false }).limit(200),
     ]);
     if (t.data) setTxs(t.data);
     if (p.data) setPayables(p.data);
     if (r.data) setReceivables(r.data);
     if (b.data) setBanks(b.data);
+    if (prt.data) setPartners(prt.data);
+    if (wd.data) setWithdrawals(wd.data);
   };
 
   useEffect(() => { if (user) load(); }, [user]);
+
+  // ===== Sangria (retirada de sócio) =====
+  const openNewW = () => setWForm({ id: "", partner_id: "", date: new Date().toISOString().slice(0, 10), amount: "", notes: "", bank_id: "", applied_to_prolabore: true });
+  const saveW = async () => {
+    if (!wForm.partner_id || !wForm.amount) return toast.error("Selecione sócio e informe valor");
+    const partner = partners.find(p => p.id === wForm.partner_id);
+    if (!partner) return toast.error("Sócio inválido");
+    const amount = Number(wForm.amount);
+    // Aviso (não bloqueia) se exceder pró-labore mensal disponível
+    if (wForm.applied_to_prolabore && partner.pro_labore && amount > Number(partner.pro_labore)) {
+      toast.warning(`Atenção: retirada (${amount}) excede pró-labore mensal (${partner.pro_labore})`);
+    }
+    const payload = {
+      partner_id: partner.id,
+      partner_name: partner.name,
+      date: wForm.date,
+      amount,
+      notes: wForm.notes || null,
+      bank_id: wForm.bank_id || null,
+      applied_to_prolabore: !!wForm.applied_to_prolabore,
+    };
+    const { error } = await supabase.from("partner_withdrawals").insert({ ...payload, user_id: user!.id });
+    if (error) return toast.error(error.message);
+    // Cria também um lançamento de despesa no fluxo de caixa para refletir a saída
+    await supabase.from("transactions").insert({
+      user_id: user!.id,
+      date: wForm.date,
+      type: "despesa",
+      amount,
+      description: `Sangria — ${partner.name}`,
+      category: "Retirada de Sócio",
+      bank_id: wForm.bank_id || null,
+    });
+    toast.success("Sangria registrada");
+    setWOpen(false); load();
+  };
+  const delW = async (id: string) => {
+    if (!confirm("Excluir esta retirada? O lançamento no fluxo continuará registrado — exclua-o manualmente se desejar.")) return;
+    await supabase.from("partner_withdrawals").delete().eq("id", id);
+    load();
+  };
+
+  // Pró-labore disponível por sócio no mês corrente: pro_labore - somatório das sangrias do mês marcadas para descontar
+  const prolaboreInfo = (partnerId: string) => {
+    const p = partners.find(x => x.id === partnerId);
+    if (!p) return { proLabore: 0, used: 0, remaining: 0 };
+    const now = new Date();
+    const ym = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const used = withdrawals
+      .filter(w => w.partner_id === partnerId && w.applied_to_prolabore && String(w.date).startsWith(ym))
+      .reduce((s, w) => s + Number(w.amount || 0), 0);
+    return { proLabore: Number(p.pro_labore || 0), used, remaining: Number(p.pro_labore || 0) - used };
+  };
+
 
   // ===== Transactions =====
   const openNewTx = () => { setTxForm({ ...emptyTx }); setTxDialog(true); };
@@ -237,6 +303,7 @@ export default function FluxoCaixa() {
           <TabsTrigger value="fluxo">Fluxo de Caixa</TabsTrigger>
           <TabsTrigger value="pagar">Contas a Pagar ({payables.filter(p => !p.paid).length})</TabsTrigger>
           <TabsTrigger value="receber">Contas a Receber ({receivables.filter(r => !r.received).length})</TabsTrigger>
+          <TabsTrigger value="sangria">Sangria ({withdrawals.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="fluxo" className="space-y-4 mt-4">
@@ -469,6 +536,79 @@ export default function FluxoCaixa() {
                       </TableRow>
                     );
                   })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* SANGRIA / RETIRADAS DE SÓCIOS */}
+        <TabsContent value="sangria" className="mt-4 space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              Retiradas pessoais dos sócios. Retiradas marcadas como pró-labore reduzem o disponível mensal.
+            </div>
+            <Dialog open={wOpen} onOpenChange={setWOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openNewW} className="bg-gradient-gold text-primary-foreground gap-2">
+                  <HandCoins className="h-4 w-4" /> Registrar Sangria
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Retirada de Sócio</DialogTitle></DialogHeader>
+                <div className="space-y-3">
+                  <div><Label>Sócio</Label>
+                    <Select value={wForm.partner_id} onValueChange={v => setWForm({ ...wForm, partner_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {partners.filter(p => p.active !== false).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {wForm.partner_id && (() => {
+                      const info = prolaboreInfo(wForm.partner_id);
+                      return <div className="text-xs text-muted-foreground mt-1">Pró-labore mensal: {fmtBRL(info.proLabore)} • Já retirado este mês: {fmtBRL(info.used)} • Disponível: <span className={info.remaining < 0 ? "text-destructive" : "text-success"}>{fmtBRL(info.remaining)}</span></div>;
+                    })()}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Data</Label><Input type="date" value={wForm.date} onChange={e => setWForm({ ...wForm, date: e.target.value })} /></div>
+                    <div><Label>Valor</Label><Input type="number" step="0.01" value={wForm.amount} onChange={e => setWForm({ ...wForm, amount: e.target.value })} /></div>
+                  </div>
+                  <div><Label>Banco (opcional)</Label>
+                    <Select value={wForm.bank_id} onValueChange={v => setWForm({ ...wForm, bank_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{banks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={!!wForm.applied_to_prolabore} onCheckedChange={(v) => setWForm({ ...wForm, applied_to_prolabore: !!v })} />
+                    <Label>Descontar do pró-labore deste mês</Label>
+                  </div>
+                  <div><Label>Observação</Label><Input value={wForm.notes} onChange={e => setWForm({ ...wForm, notes: e.target.value })} /></div>
+                </div>
+                <DialogFooter><Button onClick={saveW} className="bg-gradient-gold text-primary-foreground">Registrar</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card className="p-0 bg-card/60 overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Data</TableHead><TableHead>Sócio</TableHead><TableHead className="text-right">Valor</TableHead>
+                  <TableHead>Pró-labore?</TableHead><TableHead>Observação</TableHead><TableHead className="w-16"></TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {withdrawals.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Nenhuma retirada</TableCell></TableRow>}
+                  {withdrawals.map(w => (
+                    <TableRow key={w.id}>
+                      <TableCell className="text-sm">{fmtDate(w.date)}</TableCell>
+                      <TableCell className="font-medium">{w.partner_name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtBRL(w.amount)}</TableCell>
+                      <TableCell>{w.applied_to_prolabore ? <Badge variant="outline" className="border-success/40 text-success">Sim</Badge> : <Badge variant="outline">Não</Badge>}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{w.notes || "—"}</TableCell>
+                      <TableCell><Button size="icon" variant="ghost" onClick={() => delW(w.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </div>

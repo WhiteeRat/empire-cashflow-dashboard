@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save } from "lucide-react";
+import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save, Pencil } from "lucide-react";
 import { fmtBRL } from "@/lib/format";
 import {
   IncomeStatementItem, parseSpreadsheet, extractPdfText, parseIncomeStatementWithAI, detectIssues,
@@ -66,22 +66,34 @@ export default function Contabilidade() {
   const load = async () => {
     if (!user) return;
     setLoadingSettings(true);
-    // Settings desta empresa (ou geral)
     let tsQuery: any = supabase.from("tax_settings").select("*").eq("user_id", user.id);
     tsQuery = activeCompany ? tsQuery.eq("company_id", activeCompany.id) : tsQuery.is("company_id", null);
     const { data: ts } = await tsQuery.maybeSingle();
     if (ts) setSettings(ts as any);
     else setSettings(defaultSettings);
 
-    // Faturamento do ano (somatório de receivables recebidos)
-    const yearStart = `${new Date().getFullYear()}-01-01`;
-    let recQ: any = supabase.from("receivables").select("amount").eq("received", true).gte("due_date", yearStart);
+    // Faturamento do ano = recebíveis recebidos no ano + informes do mesmo base_year
+    // Antes filtrávamos apenas por receivables.due_date >= "{anoAtual}-01-01" SEM teto superior,
+    // o que somava também 2027+. Agora delimitamos com gte/lte e somamos os informes.
+    const currentYear = new Date().getFullYear();
+    const yearStart = `${currentYear}-01-01`;
+    const yearEnd = `${currentYear}-12-31`;
+    let recQ: any = supabase.from("receivables").select("amount").eq("received", true)
+      .gte("due_date", yearStart).lte("due_date", yearEnd);
     if (activeCompany) recQ = recQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: rec } = await recQ;
-    setRevenueYear(((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0));
+    const recvSum = ((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
-    // Histórico de informes
-    let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(50);
+    // Informes do ano (somatório de tributável + isento)
+    let incQ: any = supabase.from("income_statements").select("taxable_income, exempt_income").eq("base_year", currentYear);
+    if (activeCompany) incQ = incQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    const { data: inc } = await incQ;
+    const incSum = ((inc as any[]) || []).reduce((s, r: any) => s + Number(r.taxable_income || 0) + Number(r.exempt_income || 0), 0);
+
+    setRevenueYear(recvSum + incSum);
+
+    // Histórico de informes (todos)
+    let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(100);
     if (activeCompany) stQ = stQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: st } = await stQ;
     setStatements((st as any[]) || []);
@@ -363,18 +375,54 @@ export default function Contabilidade() {
                       <TableHead className="text-right">Isento</TableHead>
                       <TableHead className="text-right">IR retido</TableHead>
                       <TableHead>Origem</TableHead>
+                      <TableHead className="w-28"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {statements.map(s => (
                       <TableRow key={s.id}>
-                        <TableCell>{s.base_year}</TableCell>
-                        <TableCell>{s.source_name}</TableCell>
+                        <TableCell>
+                          <Input type="number" defaultValue={s.base_year} className="h-8 w-20"
+                            onBlur={async e => {
+                              const v = Number(e.target.value);
+                              if (v === s.base_year) return;
+                              await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "update", before_data: s, after_data: { ...s, base_year: v } });
+                              await supabase.from("income_statements").update({ base_year: v }).eq("id", s.id);
+                              toast.success("Atualizado"); load();
+                            }} />
+                        </TableCell>
+                        <TableCell>
+                          <Input defaultValue={s.source_name} className="h-8"
+                            onBlur={async e => {
+                              const v = e.target.value;
+                              if (v === s.source_name) return;
+                              await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "update", before_data: s, after_data: { ...s, source_name: v } });
+                              await supabase.from("income_statements").update({ source_name: v }).eq("id", s.id);
+                              load();
+                            }} />
+                        </TableCell>
                         <TableCell className="text-xs text-muted-foreground">{s.source_cnpj || "—"}</TableCell>
-                        <TableCell className="text-right tabular-nums">{fmtBRL(s.taxable_income)}</TableCell>
+                        <TableCell className="text-right">
+                          <Input type="number" step="0.01" defaultValue={s.taxable_income} className="h-8 w-28 text-right ml-auto"
+                            onBlur={async e => {
+                              const v = Number(e.target.value);
+                              if (v === Number(s.taxable_income)) return;
+                              await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "update", before_data: s, after_data: { ...s, taxable_income: v } });
+                              await supabase.from("income_statements").update({ taxable_income: v }).eq("id", s.id);
+                              load();
+                            }} />
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{fmtBRL(s.exempt_income)}</TableCell>
                         <TableCell className="text-right tabular-nums">{fmtBRL(s.ir_withheld)}</TableCell>
                         <TableCell><Badge variant="outline" className="text-xs">{s.origin}</Badge></TableCell>
+                        <TableCell>
+                          <Button size="icon" variant="ghost" onClick={async () => {
+                            if (!confirm("Excluir este informe? O impacto no faturamento será revertido.")) return;
+                            await supabase.from("income_statement_audit").insert({ user_id: user!.id, statement_id: s.id, action: "delete", before_data: s });
+                            await supabase.from("income_statements").delete().eq("id", s.id);
+                            toast.success("Excluído"); load();
+                          }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
