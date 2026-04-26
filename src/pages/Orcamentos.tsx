@@ -74,6 +74,7 @@ export default function Orcamentos() {
       cost: String(b.cost ?? ""), margin_percent: String(b.margin_percent ?? "30"),
       pay_commission: !!b.pay_commission, signal_value: String(b.signal_value ?? ""),
       commission_name: b.commission_name || "", commission_percent: String(b.commission_percent ?? "0"),
+      payment_method: b.payment_method || "", discount_cash: String(b.discount_cash ?? ""),
     });
     const { data } = await supabase.from("budget_costs").select("*").eq("budget_id", b.id).order("created_at");
     setCosts((data || []).map(c => ({ id: c.id, description: c.description, amount: String(c.amount), category: c.category })));
