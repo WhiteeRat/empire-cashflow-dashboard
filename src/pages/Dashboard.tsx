@@ -27,6 +27,8 @@ export default function Dashboard() {
   const [partnerDialog, setPartnerDialog] = useState(false);
   const [bankForm, setBankForm] = useState({ name: "", balance: "" });
   const [partnerForm, setPartnerForm] = useState({ name: "", share_percent: "" });
+  const [editBankId, setEditBankId] = useState<string | null>(null);
+  const [editBankBalance, setEditBankBalance] = useState<string>("");
 
   const [linkAccounting, setLinkAccounting] = useState(false);
   const [accountingRevenue, setAccountingRevenue] = useState(0);
