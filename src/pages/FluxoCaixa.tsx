@@ -541,6 +541,79 @@ export default function FluxoCaixa() {
             </div>
           </Card>
         </TabsContent>
+
+        {/* SANGRIA / RETIRADAS DE SÓCIOS */}
+        <TabsContent value="sangria" className="mt-4 space-y-4">
+          <div className="flex justify-between items-center">
+            <div className="text-sm text-muted-foreground">
+              Retiradas pessoais dos sócios. Retiradas marcadas como pró-labore reduzem o disponível mensal.
+            </div>
+            <Dialog open={wOpen} onOpenChange={setWOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={openNewW} className="bg-gradient-gold text-primary-foreground gap-2">
+                  <HandCoins className="h-4 w-4" /> Registrar Sangria
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>Retirada de Sócio</DialogTitle></DialogHeader>
+                <div className="space-y-3">
+                  <div><Label>Sócio</Label>
+                    <Select value={wForm.partner_id} onValueChange={v => setWForm({ ...wForm, partner_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {partners.filter(p => p.active !== false).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    {wForm.partner_id && (() => {
+                      const info = prolaboreInfo(wForm.partner_id);
+                      return <div className="text-xs text-muted-foreground mt-1">Pró-labore mensal: {fmtBRL(info.proLabore)} • Já retirado este mês: {fmtBRL(info.used)} • Disponível: <span className={info.remaining < 0 ? "text-destructive" : "text-success"}>{fmtBRL(info.remaining)}</span></div>;
+                    })()}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><Label>Data</Label><Input type="date" value={wForm.date} onChange={e => setWForm({ ...wForm, date: e.target.value })} /></div>
+                    <div><Label>Valor</Label><Input type="number" step="0.01" value={wForm.amount} onChange={e => setWForm({ ...wForm, amount: e.target.value })} /></div>
+                  </div>
+                  <div><Label>Banco (opcional)</Label>
+                    <Select value={wForm.bank_id} onValueChange={v => setWForm({ ...wForm, bank_id: v })}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>{banks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={!!wForm.applied_to_prolabore} onCheckedChange={(v) => setWForm({ ...wForm, applied_to_prolabore: !!v })} />
+                    <Label>Descontar do pró-labore deste mês</Label>
+                  </div>
+                  <div><Label>Observação</Label><Input value={wForm.notes} onChange={e => setWForm({ ...wForm, notes: e.target.value })} /></div>
+                </div>
+                <DialogFooter><Button onClick={saveW} className="bg-gradient-gold text-primary-foreground">Registrar</Button></DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card className="p-0 bg-card/60 overflow-hidden">
+            <div className="overflow-x-auto scrollbar-thin">
+              <Table>
+                <TableHeader><TableRow>
+                  <TableHead>Data</TableHead><TableHead>Sócio</TableHead><TableHead className="text-right">Valor</TableHead>
+                  <TableHead>Pró-labore?</TableHead><TableHead>Observação</TableHead><TableHead className="w-16"></TableHead>
+                </TableRow></TableHeader>
+                <TableBody>
+                  {withdrawals.length === 0 && <TableRow><TableCell colSpan={6} className="text-center py-6 text-muted-foreground">Nenhuma retirada</TableCell></TableRow>}
+                  {withdrawals.map(w => (
+                    <TableRow key={w.id}>
+                      <TableCell className="text-sm">{fmtDate(w.date)}</TableCell>
+                      <TableCell className="font-medium">{w.partner_name}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtBRL(w.amount)}</TableCell>
+                      <TableCell>{w.applied_to_prolabore ? <Badge variant="outline" className="border-success/40 text-success">Sim</Badge> : <Badge variant="outline">Não</Badge>}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{w.notes || "—"}</TableCell>
+                      <TableCell><Button size="icon" variant="ghost" onClick={() => delW(w.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Diálogo de prévia de PDF */}
