@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, TrendingDown, Coins, Wallet, PiggyBank, Plus, Download, Building2, Users, Upload } from "lucide-react";
+import { TrendingUp, TrendingDown, Coins, Wallet, PiggyBank, Plus, Download, Building2, Users, Upload, Trash2, Check, Pencil, X } from "lucide-react";
 import { fmtBRL } from "@/lib/format";
 import { exportToXlsx, importSheet } from "@/lib/exporter";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend } from "recharts";
