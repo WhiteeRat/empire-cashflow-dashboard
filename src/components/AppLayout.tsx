@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { PendingPopup } from "@/components/PendingPopup";
 import { Crown } from "lucide-react";
 
@@ -21,6 +22,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
             <div className="flex items-center gap-3">
               <CompanySwitcher />
+              <SettingsDialog />
               <div className="hidden lg:block text-xs text-muted-foreground tracking-widest uppercase">
                 {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
               </div>
