@@ -233,18 +233,18 @@ export default function Dashboard() {
           <div className="space-y-2">
             {banks.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">Nenhum banco cadastrado</p>}
             {banks.map(b => (
-              <div key={b.id} className="flex items-center justify-between p-3 rounded-md bg-muted/40 hover:bg-muted/60 transition-smooth">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
-                  <div>
-                    <p className="text-sm font-medium">{b.name}</p>
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-md bg-muted/40 hover:bg-muted/60 transition-smooth">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium break-words">{b.name}</p>
                     <label className="text-[10px] text-muted-foreground cursor-pointer hover:text-primary inline-flex items-center gap-1">
                       <Upload className="h-3 w-3" /> Importar extrato
                       <input type="file" accept=".csv,.xlsx,.xls" hidden onChange={e => e.target.files && importExtrato(e.target.files[0], b.id)} />
                     </label>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                   {editBankId === b.id ? (
                     <>
                       <Input
