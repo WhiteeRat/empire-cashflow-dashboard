@@ -244,7 +244,37 @@ export default function Dashboard() {
                     </label>
                   </div>
                 </div>
-                <span className="font-display text-lg text-primary-glow">{fmtBRL(b.balance)}</span>
+                <div className="flex items-center gap-2">
+                  {editBankId === b.id ? (
+                    <>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editBankBalance}
+                        onChange={e => setEditBankBalance(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveBankBalance(b.id); if (e.key === "Escape") setEditBankId(null); }}
+                        className="h-8 w-32 text-right"
+                        autoFocus
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => saveBankBalance(b.id)} title="Salvar">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditBankId(null)} title="Cancelar">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-display text-lg text-primary-glow">{fmtBRL(b.balance)}</span>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => startEditBank(b)} title="Editar saldo">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteBank(b)} title="Excluir banco">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
