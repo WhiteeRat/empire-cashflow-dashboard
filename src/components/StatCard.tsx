@@ -20,17 +20,18 @@ export function StatCard({
 }) {
   const t = toneMap[tone];
   return (
-    <Card className="relative overflow-hidden p-5 bg-card/60 border-border hover:border-primary/30 transition-smooth shadow-card group">
+    <Card className="relative overflow-hidden p-4 sm:p-5 bg-card/60 border-border hover:border-primary/30 transition-smooth shadow-card group">
       <div className={cn("absolute inset-x-0 top-0 h-px", "bg-gradient-to-r from-transparent via-primary/40 to-transparent")} />
-      <div className="flex items-start justify-between gap-3">
-        <div className="space-y-1.5 min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
-          <p className={cn("text-2xl md:text-3xl font-display font-semibold tracking-tight truncate", t.text)}>{value}</p>
-          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      <div className="flex items-start justify-between gap-2">
+        <div className="space-y-1.5 min-w-0 flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground break-words">{title}</p>
+          {/* Valor: usa break-words e tamanho fluido para evitar corte em telas estreitas */}
+          <p className={cn("font-display font-semibold tracking-tight break-words leading-tight text-xl sm:text-2xl md:text-3xl", t.text)}>{value}</p>
+          {hint && <p className="text-xs text-muted-foreground break-words">{hint}</p>}
         </div>
         {Icon && (
-          <div className={cn("rounded-lg p-2.5 ring-1", t.bg, t.ring)}>
-            <Icon className={cn("h-5 w-5", t.text)} />
+          <div className={cn("rounded-lg p-2 sm:p-2.5 ring-1 shrink-0", t.bg, t.ring)}>
+            <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5", t.text)} />
           </div>
         )}
       </div>

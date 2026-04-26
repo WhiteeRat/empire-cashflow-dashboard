@@ -163,7 +163,7 @@ export default function Dashboard() {
         }
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <StatCard title="Faturamento" value={fmtBRL(receita)} icon={TrendingUp} tone="success" hint={linkAccounting ? `Inclui ${fmtBRL(accountingRevenue)} contábil` : "Total de receitas"} />
         <StatCard title="Despesas & Custos" value={fmtBRL(despesa)} icon={TrendingDown} tone="destructive" hint="Saídas operacionais" />
         <StatCard title="Lucro Líquido" value={fmtBRL(lucro)} icon={Coins} tone="gold" hint={`Margem ${receita ? ((lucro / receita) * 100).toFixed(1) : 0}%`} />
@@ -233,18 +233,18 @@ export default function Dashboard() {
           <div className="space-y-2">
             {banks.length === 0 && <p className="text-sm text-muted-foreground py-6 text-center">Nenhum banco cadastrado</p>}
             {banks.map(b => (
-              <div key={b.id} className="flex items-center justify-between p-3 rounded-md bg-muted/40 hover:bg-muted/60 transition-smooth">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-md bg-primary/10 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
-                  <div>
-                    <p className="text-sm font-medium">{b.name}</p>
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-md bg-muted/40 hover:bg-muted/60 transition-smooth">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="h-9 w-9 shrink-0 rounded-md bg-primary/10 flex items-center justify-center"><Building2 className="h-4 w-4 text-primary" /></div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium break-words">{b.name}</p>
                     <label className="text-[10px] text-muted-foreground cursor-pointer hover:text-primary inline-flex items-center gap-1">
                       <Upload className="h-3 w-3" /> Importar extrato
                       <input type="file" accept=".csv,.xlsx,.xls" hidden onChange={e => e.target.files && importExtrato(e.target.files[0], b.id)} />
                     </label>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                   {editBankId === b.id ? (
                     <>
                       <Input
@@ -265,7 +265,7 @@ export default function Dashboard() {
                     </>
                   ) : (
                     <>
-                      <span className="font-display text-lg text-primary-glow">{fmtBRL(b.balance)}</span>
+                      <span className="font-display text-base sm:text-lg text-primary-glow break-all">{fmtBRL(b.balance)}</span>
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => startEditBank(b)} title="Editar saldo">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
