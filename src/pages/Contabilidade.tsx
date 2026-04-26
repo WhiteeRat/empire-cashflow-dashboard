@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save } from "lucide-react";
+import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save, Pencil } from "lucide-react";
 import { fmtBRL } from "@/lib/format";
 import {
   IncomeStatementItem, parseSpreadsheet, extractPdfText, parseIncomeStatementWithAI, detectIssues,
@@ -66,22 +66,34 @@ export default function Contabilidade() {
   const load = async () => {
     if (!user) return;
     setLoadingSettings(true);
-    // Settings desta empresa (ou geral)
     let tsQuery: any = supabase.from("tax_settings").select("*").eq("user_id", user.id);
     tsQuery = activeCompany ? tsQuery.eq("company_id", activeCompany.id) : tsQuery.is("company_id", null);
     const { data: ts } = await tsQuery.maybeSingle();
     if (ts) setSettings(ts as any);
     else setSettings(defaultSettings);
 
-    // Faturamento do ano (somatório de receivables recebidos)
-    const yearStart = `${new Date().getFullYear()}-01-01`;
-    let recQ: any = supabase.from("receivables").select("amount").eq("received", true).gte("due_date", yearStart);
+    // Faturamento do ano = recebíveis recebidos no ano + informes do mesmo base_year
+    // Antes filtrávamos apenas por receivables.due_date >= "{anoAtual}-01-01" SEM teto superior,
+    // o que somava também 2027+. Agora delimitamos com gte/lte e somamos os informes.
+    const currentYear = new Date().getFullYear();
+    const yearStart = `${currentYear}-01-01`;
+    const yearEnd = `${currentYear}-12-31`;
+    let recQ: any = supabase.from("receivables").select("amount").eq("received", true)
+      .gte("due_date", yearStart).lte("due_date", yearEnd);
     if (activeCompany) recQ = recQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: rec } = await recQ;
-    setRevenueYear(((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0));
+    const recvSum = ((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
-    // Histórico de informes
-    let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(50);
+    // Informes do ano (somatório de tributável + isento)
+    let incQ: any = supabase.from("income_statements").select("taxable_income, exempt_income").eq("base_year", currentYear);
+    if (activeCompany) incQ = incQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    const { data: inc } = await incQ;
+    const incSum = ((inc as any[]) || []).reduce((s, r: any) => s + Number(r.taxable_income || 0) + Number(r.exempt_income || 0), 0);
+
+    setRevenueYear(recvSum + incSum);
+
+    // Histórico de informes (todos)
+    let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(100);
     if (activeCompany) stQ = stQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: st } = await stQ;
     setStatements((st as any[]) || []);
