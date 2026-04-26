@@ -138,7 +138,6 @@ export default function Orcamentos() {
   const exportPdf = async (b: any) => {
     const { data: cs } = await supabase.from("budget_costs").select("*").eq("budget_id", b.id).order("created_at");
     const list = (cs || []).map(c => ({ description: c.description, amount: Number(c.amount) }));
-    const costTotal = list.length > 0 ? list.reduce((s, c) => s + c.amount, 0) : Number(b.cost) || 0;
     const finalCosts = list.length > 0 ? list : (Number(b.cost) > 0 ? [{ description: "Custo previsto", amount: Number(b.cost) }] : []);
     exportBudgetPdf({
       companyName: activeCompany?.name,
@@ -150,15 +149,10 @@ export default function Orcamentos() {
       startDate: b.start_date,
       endDate: b.end_date,
       costs: finalCosts,
-      costTotal,
       saleValue: Number(b.sale_value) || 0,
-      marginPercent: Number(b.margin_percent) || 0,
       signalValue: Number(b.signal_value) || 0,
-      commissionName: b.commission_name,
-      commissionPercent: Number(b.commission_percent) || 0,
-      commissionValue: Number(b.commission_value) || 0,
-      netProfit: Number(b.net_profit) || 0,
-      showCommission: !!b.pay_commission || !!b.commission_name,
+      paymentMethod: b.payment_method || undefined,
+      discountCash: Number(b.discount_cash) || 0,
     });
   };
 
