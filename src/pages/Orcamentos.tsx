@@ -248,6 +248,24 @@ export default function Orcamentos() {
                   <div><span className="text-muted-foreground text-xs block">Lucro Líquido</span><span className="font-display text-lg text-success">{fmtBRL(profit)}</span></div>
                 </div>
                 <div className="flex items-center gap-2"><Checkbox checked={form.pay_commission} onCheckedChange={v => setForm({ ...form, pay_commission: !!v })} id="comm" /><Label htmlFor="comm" className="cursor-pointer">Incluir comissão no PDF do orçamento</Label></div>
+
+                {/* Forma de pagamento (visível ao cliente no PDF) */}
+                <div className="pt-2 border-t border-border/40">
+                  <Label className="text-sm font-medium block mb-2">Pagamento (aparece no PDF do cliente)</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="col-span-2">
+                      <Label className="text-xs">Forma de pagamento</Label>
+                      <Input value={form.payment_method} onChange={e => setForm({ ...form, payment_method: e.target.value })} placeholder="Ex: 50% sinal + 50% na entrega, 3x cartão, à vista..." />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Desconto à vista (R$)</Label>
+                      <Input type="number" step="0.01" value={form.discount_cash} onChange={e => setForm({ ...form, discount_cash: e.target.value })} placeholder="0,00" />
+                    </div>
+                  </div>
+                  {Number(form.discount_cash) > 0 && (
+                    <div className="text-right text-sm mt-2 text-success">Valor à vista: <span className="font-medium">{fmtBRL(sale - (Number(form.discount_cash) || 0))}</span></div>
+                  )}
+                </div>
               </div>
               <DialogFooter><Button onClick={save} className="bg-gradient-gold text-primary-foreground">Salvar</Button></DialogFooter>
             </DialogContent>
