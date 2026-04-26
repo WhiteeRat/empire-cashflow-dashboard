@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, TrendingDown, Coins, Wallet, PiggyBank, Plus, Download, Building2, Users, Upload } from "lucide-react";
+import { TrendingUp, TrendingDown, Coins, Wallet, PiggyBank, Plus, Download, Building2, Users, Upload, Trash2, Check, Pencil, X } from "lucide-react";
 import { fmtBRL } from "@/lib/format";
 import { exportToXlsx, importSheet } from "@/lib/exporter";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend } from "recharts";
@@ -27,6 +27,8 @@ export default function Dashboard() {
   const [partnerDialog, setPartnerDialog] = useState(false);
   const [bankForm, setBankForm] = useState({ name: "", balance: "" });
   const [partnerForm, setPartnerForm] = useState({ name: "", share_percent: "" });
+  const [editBankId, setEditBankId] = useState<string | null>(null);
+  const [editBankBalance, setEditBankBalance] = useState<string>("");
 
   const [linkAccounting, setLinkAccounting] = useState(false);
   const [accountingRevenue, setAccountingRevenue] = useState(0);
@@ -88,6 +90,29 @@ export default function Dashboard() {
     const { error } = await supabase.from("banks").insert({ name: bankForm.name, balance: Number(bankForm.balance) || 0, user_id: user.id });
     if (error) toast.error(error.message);
     else { toast.success("Banco adicionado"); setBankDialog(false); setBankForm({ name: "", balance: "" }); load(); }
+  };
+
+  /** Inicia edição inline do saldo de um banco */
+  const startEditBank = (b: Bank) => {
+    setEditBankId(b.id);
+    setEditBankBalance(String(b.balance));
+  };
+
+  /** Salva o novo saldo do banco no banco de dados */
+  const saveBankBalance = async (id: string) => {
+    const newBalance = Number(editBankBalance);
+    if (Number.isNaN(newBalance)) { toast.error("Saldo inválido"); return; }
+    const { error } = await supabase.from("banks").update({ balance: newBalance }).eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Saldo atualizado"); setEditBankId(null); load(); }
+  };
+
+  /** Exclui o banco após confirmação do usuário */
+  const deleteBank = async (b: Bank) => {
+    if (!confirm(`Excluir o banco "${b.name}"? Essa ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("banks").delete().eq("id", b.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Banco excluído"); load(); }
   };
 
   const addPartner = async () => {
@@ -219,7 +244,37 @@ export default function Dashboard() {
                     </label>
                   </div>
                 </div>
-                <span className="font-display text-lg text-primary-glow">{fmtBRL(b.balance)}</span>
+                <div className="flex items-center gap-2">
+                  {editBankId === b.id ? (
+                    <>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editBankBalance}
+                        onChange={e => setEditBankBalance(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") saveBankBalance(b.id); if (e.key === "Escape") setEditBankId(null); }}
+                        className="h-8 w-32 text-right"
+                        autoFocus
+                      />
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => saveBankBalance(b.id)} title="Salvar">
+                        <Check className="h-4 w-4" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditBankId(null)} title="Cancelar">
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-display text-lg text-primary-glow">{fmtBRL(b.balance)}</span>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => startEditBank(b)} title="Editar saldo">
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => deleteBank(b)} title="Excluir banco">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
