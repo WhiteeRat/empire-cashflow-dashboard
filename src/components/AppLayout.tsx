@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { CompanySwitcher } from "@/components/CompanySwitcher";
+import { PendingPopup } from "@/components/PendingPopup";
 import { Crown } from "lucide-react";
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -17,11 +19,15 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 <span className="font-display text-lg tracking-wide text-foreground/90">Painel Imperial</span>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground tracking-widest uppercase">
-              {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+            <div className="flex items-center gap-3">
+              <CompanySwitcher />
+              <div className="hidden lg:block text-xs text-muted-foreground tracking-widest uppercase">
+                {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+              </div>
             </div>
           </header>
           <main className="flex-1 p-4 md:p-6 lg:p-8 animate-fade-in">{children}</main>
+          <PendingPopup />
         </div>
       </div>
     </SidebarProvider>
