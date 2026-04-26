@@ -28,24 +28,41 @@ export default function Dashboard() {
   const [bankForm, setBankForm] = useState({ name: "", balance: "" });
   const [partnerForm, setPartnerForm] = useState({ name: "", share_percent: "" });
 
+  const [linkAccounting, setLinkAccounting] = useState(false);
+  const [accountingRevenue, setAccountingRevenue] = useState(0);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+
   const load = async () => {
-    const [b, p, t] = await Promise.all([
+    if (!user) return;
+    const currentYear = new Date().getFullYear();
+    const [b, p, t, settings, inc, wd] = await Promise.all([
       supabase.from("banks").select("*").order("created_at"),
       supabase.from("partners").select("*").order("created_at"),
       supabase.from("transactions").select("*").order("date", { ascending: false }),
+      supabase.from("user_settings").select("link_accounting_to_dashboard").eq("user_id", user.id).maybeSingle(),
+      supabase.from("income_statements").select("taxable_income, exempt_income, base_year").eq("base_year", currentYear),
+      supabase.from("partner_withdrawals").select("*").gte("date", `${currentYear}-01-01`).lte("date", `${currentYear}-12-31`),
     ]);
     if (b.data) setBanks(b.data as any);
     if (p.data) setPartners(p.data as any);
     if (t.data) setTxs(t.data as any);
+    setLinkAccounting(!!(settings.data as any)?.link_accounting_to_dashboard);
+    const incSum = ((inc.data as any[]) || []).reduce((s, r) => s + Number(r.taxable_income || 0) + Number(r.exempt_income || 0), 0);
+    setAccountingRevenue(incSum);
+    setWithdrawals((wd.data as any[]) || []);
   };
 
   useEffect(() => { if (user) load(); }, [user]);
 
-  const receita = txs.filter(t => t.type === "receita").reduce((s, t) => s + Number(t.amount), 0);
+  const baseReceita = txs.filter(t => t.type === "receita").reduce((s, t) => s + Number(t.amount), 0);
+  const receita = baseReceita + (linkAccounting ? accountingRevenue : 0);
   const despesa = txs.filter(t => t.type === "despesa").reduce((s, t) => s + Number(t.amount), 0);
   const lucro = receita - despesa;
   const totalBancos = banks.reduce((s, b) => s + Number(b.balance), 0);
-  const distribuicao = lucro * 0.5; // 50% para sócios (configurável)
+  // Distribuição prevista = soma do pró-labore mensal × 12 (anual) — fallback antigo se não houver sócios
+  const proLaboreAnual = partners.reduce((s: number, p: any) => s + Number(p.pro_labore || 0) * 12, 0);
+  const totalSangrias = withdrawals.reduce((s, w) => s + Number(w.amount || 0), 0);
+  const distribuicao = proLaboreAnual > 0 ? proLaboreAnual : Math.max(0, lucro * 0.5);
   const capitalGiro = totalBancos - distribuicao;
 
   // chart data: últimos 6 meses
