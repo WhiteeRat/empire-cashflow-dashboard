@@ -1,1 +1,4 @@
 project_id = "pghwrkasifljtujcuiaa"
+
+[functions.parse-income-statement]
+verify_jwt = true
