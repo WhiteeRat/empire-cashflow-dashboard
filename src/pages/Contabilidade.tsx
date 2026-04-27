@@ -408,7 +408,20 @@ export default function Contabilidade() {
         {/* HISTORY */}
         <TabsContent value="history">
           <Card>
-            <CardHeader><CardTitle>Informes salvos</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Informes salvos</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2"><FileDown className="h-4 w-4" /> Exportar</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={exportStatementsXlsx}><FileSpreadsheet className="h-4 w-4 mr-2" /> Excel (.xlsx)</DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportStatementsPdf}><FileDown className="h-4 w-4 mr-2" /> PDF (.pdf)</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardTitle>
+            </CardHeader>
             <CardContent>
               {statements.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center">Nenhum informe salvo ainda.</div>
