@@ -209,6 +209,92 @@ export type Database = {
         }
         Relationships: []
       }
+      company_module_overrides: {
+        Row: {
+          company_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          module_key: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_key: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          module_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_module_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_subscriptions: {
+        Row: {
+          active: boolean
+          company_id: string
+          created_at: string
+          ends_at: string | null
+          granted_by: string | null
+          id: string
+          notes: string | null
+          plan_id: string
+          starts_at: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          created_at?: string
+          ends_at?: string | null
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          plan_id: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          created_at?: string
+          ends_at?: string | null
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          plan_id?: string
+          starts_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employees: {
         Row: {
           active: boolean
@@ -603,6 +689,42 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          modules: Json
+          name: string
+          price_monthly: number
+          price_one_time: number | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id: string
+          modules?: Json
+          name: string
+          price_monthly?: number
+          price_one_time?: number | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          modules?: Json
+          name?: string
+          price_monthly?: number
+          price_one_time?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -990,6 +1112,27 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_settings: {
         Row: {
           active_company_id: string | null
@@ -1045,10 +1188,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "super_admin" | "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1175,6 +1324,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["super_admin", "admin", "user"],
+    },
   },
 } as const
