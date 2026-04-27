@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { scope, withCompany } from "@/lib/companyScope";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,8 @@ const emptyRec = { id: "", client: "", project: "", due_date: "", cost: "", amou
 
 export default function FluxoCaixa() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const [txs, setTxs] = useState<AnyRec[]>([]);
   const [payables, setPayables] = useState<AnyRec[]>([]);
   const [receivables, setReceivables] = useState<AnyRec[]>([]);
@@ -64,12 +68,12 @@ export default function FluxoCaixa() {
 
   const load = async () => {
     const [t, p, r, b, prt, wd] = await Promise.all([
-      supabase.from("transactions").select("*").order("date", { ascending: false }),
-      supabase.from("payables").select("*").order("due_date", { ascending: true }),
-      supabase.from("receivables").select("*").order("due_date", { ascending: true }),
-      supabase.from("banks").select("*"),
-      supabase.from("partners").select("*").order("name"),
-      supabase.from("partner_withdrawals").select("*").order("date", { ascending: false }).limit(200),
+      scope(supabase.from("transactions").select("*").order("date", { ascending: false }), companyId),
+      scope(supabase.from("payables").select("*").order("due_date", { ascending: true }), companyId),
+      scope(supabase.from("receivables").select("*").order("due_date", { ascending: true }), companyId),
+      scope(supabase.from("banks").select("*"), companyId),
+      scope(supabase.from("partners").select("*").order("name"), companyId),
+      scope(supabase.from("partner_withdrawals").select("*").order("date", { ascending: false }).limit(200), companyId),
     ]);
     if (t.data) setTxs(t.data);
     if (p.data) setPayables(p.data);
@@ -79,7 +83,7 @@ export default function FluxoCaixa() {
     if (wd.data) setWithdrawals(wd.data);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user) load(); }, [user, companyId]);
 
   // ===== Sangria (retirada de sócio) =====
   const openNewW = () => setWForm({ id: "", partner_id: "", date: new Date().toISOString().slice(0, 10), amount: "", notes: "", bank_id: "", applied_to_prolabore: true });
