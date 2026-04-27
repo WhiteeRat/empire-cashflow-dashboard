@@ -2,79 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
-/* IMPÉRIO — Dark Premium Diamond Blue Design System */
+/* IMPÉRIO — Monochrome Premium Noir Design System */
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    /* Deep diamond palette — midnight sapphire */
-    --background: 220 40% 5%;
-    --foreground: 210 40% 96%;
+    /* Pure noir palette — deep black with neutral grays */
+    --background: 0 0% 6%;
+    --foreground: 0 0% 96%;
 
-    --card: 220 38% 8%;
-    --card-foreground: 210 40% 96%;
+    --card: 0 0% 9%;
+    --card-foreground: 0 0% 96%;
 
-    --popover: 220 42% 7%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 96%;
 
-    /* Diamond cyan-blue */
-    --primary: 200 95% 60%;
-    --primary-foreground: 220 50% 8%;
-    --primary-glow: 190 100% 75%;
-    --primary-deep: 215 85% 45%;
+    /* Pure white as primary accent */
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 8%;
+    --primary-glow: 0 0% 100%;
+    --primary-deep: 0 0% 80%;
 
-    --secondary: 220 30% 14%;
-    --secondary-foreground: 210 35% 92%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 92%;
 
-    --muted: 220 28% 12%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 195 90% 55%;
-    --accent-foreground: 220 50% 8%;
+    --accent: 0 0% 85%;
+    --accent-foreground: 0 0% 8%;
 
-    --destructive: 0 75% 58%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 160 75% 48%;
+    --success: 150 50% 50%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 58%;
-    --warning-foreground: 220 50% 8%;
+    --warning: 40 85% 60%;
+    --warning-foreground: 0 0% 8%;
 
-    --border: 215 35% 20%;
-    --input: 220 30% 14%;
-    --ring: 200 95% 60%;
+    --border: 0 0% 18%;
+    --input: 0 0% 14%;
+    --ring: 0 0% 70%;
 
     --radius: 0.625rem;
 
-    /* Gradients — diamond shimmer */
-    --gradient-gold: linear-gradient(135deg, hsl(200 95% 60%), hsl(215 85% 45%));
-    --gradient-gold-glow: linear-gradient(135deg, hsl(190 100% 75%), hsl(200 95% 60%));
-    --gradient-dark: linear-gradient(180deg, hsl(220 38% 8%), hsl(220 40% 5%));
-    --gradient-radial: radial-gradient(ellipse at top, hsl(200 80% 25% / 0.35), transparent 70%);
+    /* Gradients — monochrome silver shimmer */
+    --gradient-gold: linear-gradient(135deg, hsl(0 0% 95%), hsl(0 0% 70%));
+    --gradient-gold-glow: linear-gradient(135deg, hsl(0 0% 100%), hsl(0 0% 80%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 9%), hsl(0 0% 5%));
+    --gradient-radial: radial-gradient(ellipse at top, hsl(0 0% 18% / 0.5), transparent 70%);
 
-    /* Shadows — icy glow */
-    --shadow-gold: 0 10px 40px -10px hsl(200 95% 60% / 0.4);
-    --shadow-elegant: 0 20px 60px -20px hsl(220 60% 2% / 0.7);
-    --shadow-card: 0 4px 20px -4px hsl(220 60% 2% / 0.5);
+    /* Shadows — neutral depth */
+    --shadow-gold: 0 10px 40px -10px hsl(0 0% 0% / 0.6);
+    --shadow-elegant: 0 20px 60px -20px hsl(0 0% 0% / 0.8);
+    --shadow-card: 0 4px 20px -4px hsl(0 0% 0% / 0.5);
 
     /* Sidebar */
-    --sidebar-background: 222 45% 6%;
-    --sidebar-foreground: 210 35% 88%;
-    --sidebar-primary: 200 95% 60%;
-    --sidebar-primary-foreground: 220 50% 8%;
-    --sidebar-accent: 220 35% 11%;
-    --sidebar-accent-foreground: 190 100% 75%;
-    --sidebar-border: 215 35% 14%;
-    --sidebar-ring: 200 95% 60%;
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 0 0% 11%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 14%;
+    --sidebar-ring: 0 0% 70%;
 
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .dark {
-    /* Same as root — app is dark by default */
-    --background: 220 40% 5%;
-    --foreground: 210 40% 96%;
+    --background: 0 0% 6%;
+    --foreground: 0 0% 96%;
   }
 }
 
