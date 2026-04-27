@@ -33,7 +33,7 @@ import { usePlanAccess } from "@/hooks/usePlanAccess";
 import type { ModuleKey } from "@/lib/modules";
 
 const items: { title: string; url: string; icon: any; moduleKey: ModuleKey }[] = [
-  { title: "Dashboard",                title: "Dashboard",                url: "/",              icon: LayoutDashboard, moduleKey: "dashboard" } as any,
+  { title: "Dashboard",                url: "/",              icon: LayoutDashboard, moduleKey: "dashboard" },
   { title: "DRE Mensal",               url: "/dre",            icon: FileBarChart,    moduleKey: "dre" },
   { title: "Fluxo & Contas",           url: "/fluxo",          icon: Wallet,          moduleKey: "fluxo" },
   { title: "Orçamentos & Agenda",      url: "/orcamentos",     icon: CalendarRange,   moduleKey: "orcamentos" },
