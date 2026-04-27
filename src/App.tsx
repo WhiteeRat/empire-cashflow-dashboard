@@ -20,6 +20,7 @@ import Equipe from "./pages/Equipe";
 import Contabilidade from "./pages/Contabilidade";
 import Diretoria from "./pages/Diretoria";
 import Imperar from "./pages/Imperar";
+import Configuracoes from "./pages/Configuracoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/contabilidade" element={<GuardedRoute moduleKey="contabilidade"><Contabilidade /></GuardedRoute>} />
             <Route path="/diretoria"     element={<GuardedRoute moduleKey="diretoria"><Diretoria /></GuardedRoute>} />
             <Route path="/imperar"       element={<GuardedRoute moduleKey="imperar"><Imperar /></GuardedRoute>} />
+            <Route path="/configuracoes" element={<ProtectedRoute><AppLayout><Configuracoes /></AppLayout></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </CompanyProvider>
