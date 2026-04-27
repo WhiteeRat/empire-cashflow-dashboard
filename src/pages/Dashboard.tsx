@@ -112,7 +112,7 @@ export default function Dashboard() {
 
   const addBank = async () => {
     if (!bankForm.name || !user) return;
-    const { error } = await supabase.from("banks").insert({ name: bankForm.name, balance: Number(bankForm.balance) || 0, user_id: user.id });
+    const { error } = await supabase.from("banks").insert(withCompany({ name: bankForm.name, balance: Number(bankForm.balance) || 0, user_id: user.id }, companyId));
     if (error) toast.error(error.message);
     else { toast.success("Banco adicionado"); setBankDialog(false); setBankForm({ name: "", balance: "" }); load(); }
   };
