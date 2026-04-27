@@ -14,11 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save, Pencil } from "lucide-react";
+import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save, Pencil, FileDown, FileSpreadsheet } from "lucide-react";
 import { fmtBRL } from "@/lib/format";
 import {
   IncomeStatementItem, parseSpreadsheet, extractPdfText, parseIncomeStatementWithAI, detectIssues,
 } from "@/lib/accountingImporter";
+import { exportToXlsx } from "@/lib/exporter";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 /** Limites padrão por regime (BRL/ano) — base 2026. Editáveis pelo usuário. */
 const REGIME_DEFAULTS: Record<string, { label: string; annual: number }> = {
