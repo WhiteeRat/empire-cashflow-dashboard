@@ -113,6 +113,7 @@ export default function FluxoCaixa() {
       category: "Retirada de Sócio",
       bank_id: wForm.bank_id || null,
     });
+    if (wForm.bank_id) await applyBankDeltaInline(wForm.bank_id, -amount);
     toast.success("Sangria registrada");
     setWOpen(false); load();
   };
