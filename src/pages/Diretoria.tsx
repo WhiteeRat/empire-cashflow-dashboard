@@ -14,11 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, FileDown, AlertTriangle, Users, Calculator } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, AlertTriangle, Users, Calculator, FileSpreadsheet } from "lucide-react";
 import { fmtBRL, fmtDate } from "@/lib/format";
 import { toast } from "sonner";
 import { buildPeriod, PeriodType } from "@/lib/periods";
 import { exportDistributionPdf } from "@/lib/profitDistributionPdf";
+import { exportToXlsx } from "@/lib/exporter";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Partner = {
   id: string;
