@@ -24,20 +24,25 @@ import {
   Kanban,
   Calculator,
   Briefcase,
+  Lock,
+  Rocket,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { usePlanAccess } from "@/hooks/usePlanAccess";
+import type { ModuleKey } from "@/lib/modules";
 
-const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "DRE Mensal", url: "/dre", icon: FileBarChart },
-  { title: "Fluxo & Contas", url: "/fluxo", icon: Wallet },
-  { title: "Orçamentos & Agenda", url: "/orcamentos", icon: CalendarRange },
-  { title: "Produtividade", url: "/produtividade", icon: Kanban },
-  { title: "Métricas Real x Previsto", url: "/metricas", icon: TrendingUp },
-  { title: "Equipe & Fornecedores", url: "/equipe", icon: Users },
-  { title: "Contabilidade", url: "/contabilidade", icon: Calculator },
-  { title: "Diretoria", url: "/diretoria", icon: Briefcase },
+const items: { title: string; url: string; icon: any; moduleKey: ModuleKey }[] = [
+  { title: "Dashboard",                title: "Dashboard",                url: "/",              icon: LayoutDashboard, moduleKey: "dashboard" } as any,
+  { title: "DRE Mensal",               url: "/dre",            icon: FileBarChart,    moduleKey: "dre" },
+  { title: "Fluxo & Contas",           url: "/fluxo",          icon: Wallet,          moduleKey: "fluxo" },
+  { title: "Orçamentos & Agenda",      url: "/orcamentos",     icon: CalendarRange,   moduleKey: "orcamentos" },
+  { title: "Produtividade",            url: "/produtividade",  icon: Kanban,          moduleKey: "produtividade" },
+  { title: "Métricas Real x Previsto", url: "/metricas",       icon: TrendingUp,      moduleKey: "metricas" },
+  { title: "Equipe & Fornecedores",    url: "/equipe",         icon: Users,           moduleKey: "equipe" },
+  { title: "Contabilidade",            url: "/contabilidade",  icon: Calculator,      moduleKey: "contabilidade" },
+  { title: "Diretoria",                url: "/diretoria",      icon: Briefcase,       moduleKey: "diretoria" },
+  { title: "Imperar — Crescimento",    url: "/imperar",        icon: Rocket,          moduleKey: "imperar" },
 ];
 
 export function AppSidebar() {
