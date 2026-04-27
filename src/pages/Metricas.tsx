@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { scope, withCompany } from "@/lib/companyScope";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,32 +19,34 @@ const DEFAULTS = ["Combustível", "Pedágio", "Funcionários", "Contabilidade", 
 
 export default function Metricas() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const [rows, setRows] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ category: "", ideal_percent: "", budget_amount: "", real_amount: "" });
 
   const load = async () => {
-    const { data } = await supabase.from("metrics").select("*").order("created_at");
+    const { data } = await scope(supabase.from("metrics").select("*").order("created_at"), companyId);
     if (data) setRows(data);
   };
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user) load(); }, [user, companyId]);
 
   const seedDefaults = async () => {
     if (!user) return;
-    const inserts = DEFAULTS.map(c => ({ category: c, ideal_percent: 5, budget_amount: 0, real_amount: 0, user_id: user.id }));
+    const inserts = DEFAULTS.map(c => ({ category: c, ideal_percent: 5, budget_amount: 0, real_amount: 0, user_id: user.id, company_id: companyId }));
     await supabase.from("metrics").insert(inserts);
     load();
   };
 
   const save = async () => {
     if (!form.category) return toast.error("Categoria obrigatória");
-    const { error } = await supabase.from("metrics").insert({
+    const { error } = await supabase.from("metrics").insert(withCompany({
       ...form,
       ideal_percent: Number(form.ideal_percent) || 0,
       budget_amount: Number(form.budget_amount) || 0,
       real_amount: Number(form.real_amount) || 0,
       user_id: user!.id,
-    });
+    }, companyId));
     if (error) toast.error(error.message);
     else { toast.success("Métrica adicionada"); setOpen(false); setForm({ category: "", ideal_percent: "", budget_amount: "", real_amount: "" }); load(); }
   };

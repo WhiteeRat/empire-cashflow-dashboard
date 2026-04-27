@@ -44,8 +44,8 @@ export default function Orcamentos() {
   const [costs, setCosts] = useState<CostRow[]>([]);
 
   const load = async () => {
-    let q = supabase.from("budgets").select("*").order("start_date", { ascending: false });
-    if (activeCompany) q = q.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    let q: any = supabase.from("budgets").select("*").order("start_date", { ascending: false });
+    q = activeCompany ? q.eq("company_id", activeCompany.id) : q.is("company_id", null);
     const { data } = await q;
     if (data) setItems(data);
   };

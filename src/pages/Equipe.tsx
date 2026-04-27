@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { scope, withCompany } from "@/lib/companyScope";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,8 @@ function calcWorkedHours(e: AnyRec) {
 
 export default function Equipe() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const [employees, setEmployees] = useState<AnyRec[]>([]);
   const [entries, setEntries] = useState<AnyRec[]>([]);
   const [suppliers, setSuppliers] = useState<AnyRec[]>([]);
@@ -51,15 +55,15 @@ export default function Equipe() {
 
   const load = async () => {
     const [e, t, s] = await Promise.all([
-      supabase.from("employees").select("*").order("name"),
-      supabase.from("time_entries").select("*").order("date", { ascending: false }),
-      supabase.from("suppliers").select("*").order("name"),
+      scope(supabase.from("employees").select("*").order("name"), companyId),
+      scope(supabase.from("time_entries").select("*").order("date", { ascending: false }), companyId),
+      scope(supabase.from("suppliers").select("*").order("name"), companyId),
     ]);
     if (e.data) setEmployees(e.data);
     if (t.data) setEntries(t.data);
     if (s.data) setSuppliers(s.data);
   };
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user) load(); }, [user, companyId]);
 
   // ===== Employees =====
   const openNewEmp = () => { setEmpForm({ ...emptyEmp }); setEmpOpen(true); };
@@ -78,7 +82,7 @@ export default function Equipe() {
     };
     const { error } = empForm.id
       ? await supabase.from("employees").update(payload).eq("id", empForm.id)
-      : await supabase.from("employees").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("employees").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(empForm.id ? "Atualizado" : "Adicionado");
     setEmpOpen(false); load();
@@ -102,7 +106,7 @@ export default function Equipe() {
     };
     const { error } = supForm.id
       ? await supabase.from("suppliers").update(payload).eq("id", supForm.id)
-      : await supabase.from("suppliers").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("suppliers").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(supForm.id ? "Atualizado" : "Adicionado");
     setSupOpen(false); load();
@@ -141,7 +145,7 @@ export default function Equipe() {
     };
     const { error } = entForm.id
       ? await supabase.from("time_entries").update(payload).eq("id", entForm.id)
-      : await supabase.from("time_entries").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("time_entries").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(entForm.id ? "Ponto atualizado" : "Ponto registrado");
     setEntOpen(false); load();
