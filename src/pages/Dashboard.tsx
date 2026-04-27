@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { scope, withCompany } from "@/lib/companyScope";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { Card } from "@/components/ui/card";
@@ -23,6 +25,8 @@ type Tx = { id: string; date: string; type: string; amount: number; description:
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const [banks, setBanks] = useState<Bank[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [txs, setTxs] = useState<Tx[]>([]);
@@ -44,14 +48,19 @@ export default function Dashboard() {
     const yearStart = `${currentYear}-01-01`;
     const yearEnd = `${currentYear}-12-31`;
     const [b, p, t, settings, inc, wd, dist] = await Promise.all([
-      supabase.from("banks").select("*").order("created_at"),
-      supabase.from("partners").select("*").order("created_at"),
-      supabase.from("transactions").select("*").order("date", { ascending: false }),
+      scope(supabase.from("banks").select("*").order("created_at"), companyId),
+      scope(supabase.from("partners").select("*").order("created_at"), companyId),
+      scope(supabase.from("transactions").select("*").order("date", { ascending: false }), companyId),
       supabase.from("user_settings").select("link_accounting_to_dashboard").eq("user_id", user.id).maybeSingle(),
-      supabase.from("income_statements").select("taxable_income, exempt_income, base_year").eq("base_year", currentYear),
-      supabase.from("partner_withdrawals").select("*").gte("date", yearStart).lte("date", yearEnd),
-      supabase.from("profit_distributions").select("id, total_distributed, net_profit, period_start, period_end, period_label, created_at")
-        .gte("period_start", yearStart).lte("period_end", yearEnd).order("created_at", { ascending: false }),
+      scope(supabase.from("income_statements").select("taxable_income, exempt_income, base_year").eq("base_year", currentYear), companyId),
+      scope(supabase.from("partner_withdrawals").select("*").gte("date", yearStart).lte("date", yearEnd), companyId),
+      scope(
+        supabase.from("profit_distributions")
+          .select("id, total_distributed, net_profit, period_start, period_end, period_label, created_at")
+          .gte("period_start", yearStart).lte("period_end", yearEnd)
+          .order("created_at", { ascending: false }),
+        companyId
+      ),
     ]);
     if (b.data) setBanks(b.data as any);
     if (p.data) setPartners(p.data as any);
@@ -63,7 +72,7 @@ export default function Dashboard() {
     setDistributions((dist.data as any[]) || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user) load(); }, [user, companyId]);
 
   const baseReceita = txs.filter(t => t.type === "receita").reduce((s, t) => s + Number(t.amount), 0);
   const receita = baseReceita + (linkAccounting ? accountingRevenue : 0);
@@ -103,7 +112,7 @@ export default function Dashboard() {
 
   const addBank = async () => {
     if (!bankForm.name || !user) return;
-    const { error } = await supabase.from("banks").insert({ name: bankForm.name, balance: Number(bankForm.balance) || 0, user_id: user.id });
+    const { error } = await supabase.from("banks").insert(withCompany({ name: bankForm.name, balance: Number(bankForm.balance) || 0, user_id: user.id }, companyId));
     if (error) toast.error(error.message);
     else { toast.success("Banco adicionado"); setBankDialog(false); setBankForm({ name: "", balance: "" }); load(); }
   };
@@ -163,7 +172,7 @@ export default function Dashboard() {
 
   const addPartner = async () => {
     if (!partnerForm.name || !user) return;
-    const { error } = await supabase.from("partners").insert({ name: partnerForm.name, share_percent: Number(partnerForm.share_percent) || 0, user_id: user.id });
+    const { error } = await supabase.from("partners").insert(withCompany({ name: partnerForm.name, share_percent: Number(partnerForm.share_percent) || 0, user_id: user.id }, companyId));
     if (error) toast.error(error.message);
     else { toast.success("Sócio adicionado"); setPartnerDialog(false); setPartnerForm({ name: "", share_percent: "" }); load(); }
   };
@@ -216,6 +225,7 @@ export default function Dashboard() {
       const rows = await importSheet(file);
       const inserts = rows.map((r: any) => ({
         user_id: user!.id,
+        company_id: companyId,
         bank_id: bankId,
         date: r.data || r.date || new Date().toISOString().slice(0, 10),
         description: String(r.descricao || r.description || r.historico || "Importado"),

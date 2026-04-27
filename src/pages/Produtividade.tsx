@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { scope, withCompany } from "@/lib/companyScope";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -35,15 +37,17 @@ const empty = { id: "", name: "", client: "", responsible: "", status: "em_andam
 
 export default function Produtividade() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const [items, setItems] = useState<Project[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>({ ...empty });
 
   const load = async () => {
-    const { data } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+    const { data } = await scope(supabase.from("projects").select("*").order("created_at", { ascending: false }), companyId);
     if (data) setItems(data as any);
   };
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user) load(); }, [user, companyId]);
 
   const openNew = () => { setForm({ ...empty }); setOpen(true); };
   const openEdit = (p: Project) => {
@@ -66,7 +70,7 @@ export default function Produtividade() {
     };
     const { error } = form.id
       ? await supabase.from("projects").update(payload).eq("id", form.id)
-      : await supabase.from("projects").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("projects").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(form.id ? "Atualizado" : "Projeto criado");
     setOpen(false); load();

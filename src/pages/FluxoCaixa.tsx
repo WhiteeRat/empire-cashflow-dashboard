@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { scope, withCompany } from "@/lib/companyScope";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,8 @@ const emptyRec = { id: "", client: "", project: "", due_date: "", cost: "", amou
 
 export default function FluxoCaixa() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const [txs, setTxs] = useState<AnyRec[]>([]);
   const [payables, setPayables] = useState<AnyRec[]>([]);
   const [receivables, setReceivables] = useState<AnyRec[]>([]);
@@ -64,12 +68,12 @@ export default function FluxoCaixa() {
 
   const load = async () => {
     const [t, p, r, b, prt, wd] = await Promise.all([
-      supabase.from("transactions").select("*").order("date", { ascending: false }),
-      supabase.from("payables").select("*").order("due_date", { ascending: true }),
-      supabase.from("receivables").select("*").order("due_date", { ascending: true }),
-      supabase.from("banks").select("*"),
-      supabase.from("partners").select("*").order("name"),
-      supabase.from("partner_withdrawals").select("*").order("date", { ascending: false }).limit(200),
+      scope(supabase.from("transactions").select("*").order("date", { ascending: false }), companyId),
+      scope(supabase.from("payables").select("*").order("due_date", { ascending: true }), companyId),
+      scope(supabase.from("receivables").select("*").order("due_date", { ascending: true }), companyId),
+      scope(supabase.from("banks").select("*"), companyId),
+      scope(supabase.from("partners").select("*").order("name"), companyId),
+      scope(supabase.from("partner_withdrawals").select("*").order("date", { ascending: false }).limit(200), companyId),
     ]);
     if (t.data) setTxs(t.data);
     if (p.data) setPayables(p.data);
@@ -79,7 +83,7 @@ export default function FluxoCaixa() {
     if (wd.data) setWithdrawals(wd.data);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user) load(); }, [user, companyId]);
 
   // ===== Sangria (retirada de sócio) =====
   const openNewW = () => setWForm({ id: "", partner_id: "", date: new Date().toISOString().slice(0, 10), amount: "", notes: "", bank_id: "", applied_to_prolabore: true });
@@ -101,10 +105,10 @@ export default function FluxoCaixa() {
       bank_id: wForm.bank_id || null,
       applied_to_prolabore: !!wForm.applied_to_prolabore,
     };
-    const { error } = await supabase.from("partner_withdrawals").insert({ ...payload, user_id: user!.id });
+    const { error } = await supabase.from("partner_withdrawals").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     // Cria também um lançamento de despesa no fluxo de caixa para refletir a saída
-    await supabase.from("transactions").insert({
+    await supabase.from("transactions").insert(withCompany({
       user_id: user!.id,
       date: wForm.date,
       type: "despesa",
@@ -112,7 +116,7 @@ export default function FluxoCaixa() {
       description: `Sangria — ${partner.name}`,
       category: "Retirada de Sócio",
       bank_id: wForm.bank_id || null,
-    });
+    }, companyId));
     if (wForm.bank_id) await applyBankDelta(wForm.bank_id, -amount);
     toast.success("Sangria registrada");
     setWOpen(false); load();
@@ -170,7 +174,7 @@ export default function FluxoCaixa() {
       if (prev) await applyBankDelta(prev.bank_id, -txDelta(prev.type, prev.amount));
       await applyBankDelta(payload.bank_id, txDelta(payload.type, payload.amount));
     } else {
-      const { error } = await supabase.from("transactions").insert({ ...payload, user_id: user!.id });
+      const { error } = await supabase.from("transactions").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
       if (error) return toast.error(error.message);
       await applyBankDelta(payload.bank_id, txDelta(payload.type, payload.amount));
     }
@@ -213,7 +217,7 @@ export default function FluxoCaixa() {
     };
     const { error } = payForm.id
       ? await supabase.from("payables").update(payload).eq("id", payForm.id)
-      : await supabase.from("payables").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("payables").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(payForm.id ? "Conta atualizada" : "Conta adicionada");
     setPayDialog(false); load();
@@ -238,7 +242,7 @@ export default function FluxoCaixa() {
     };
     const { error } = recForm.id
       ? await supabase.from("receivables").update(payload).eq("id", recForm.id)
-      : await supabase.from("receivables").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("receivables").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(recForm.id ? "Recebível atualizado" : "Recebível adicionado");
     setRecDialog(false); load();
@@ -254,6 +258,7 @@ export default function FluxoCaixa() {
         const v = Number(r.valor || r.amount || 0);
         return {
           user_id: user!.id,
+          company_id: companyId,
           date: r.data || r.date || new Date().toISOString().slice(0, 10),
           description: String(r.descricao || r.description || r.historico || "Importado"),
           amount: Math.abs(v),
@@ -287,6 +292,7 @@ export default function FluxoCaixa() {
     if (!selected.length) return toast.error("Selecione ao menos uma linha");
     const inserts = selected.map(r => ({
       user_id: user!.id,
+      company_id: companyId,
       date: r.date,
       description: r.description,
       amount: r.amount,

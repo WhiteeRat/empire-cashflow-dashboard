@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,15 +15,16 @@ type Tx = { date: string; type: string; amount: number; category: string | null;
 
 export default function DRE() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
   const [txs, setTxs] = useState<Tx[]>([]);
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
     if (!user) return;
-    supabase.from("transactions").select("date,type,amount,category,description").then(({ data }) => {
-      if (data) setTxs(data as any);
-    });
-  }, [user]);
+    let q: any = supabase.from("transactions").select("date,type,amount,category,description");
+    q = activeCompany ? q.eq("company_id", activeCompany.id) : q.is("company_id", null);
+    q.then(({ data }: any) => { if (data) setTxs(data as any); });
+  }, [user, activeCompany]);
 
   const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 

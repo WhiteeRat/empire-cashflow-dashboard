@@ -76,14 +76,14 @@ export default function Diretoria() {
   // ===== Loaders =====
   const loadPartners = async () => {
     let q: any = supabase.from("partners").select("*").order("created_at");
-    if (activeCompany) q = q.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    q = activeCompany ? q.eq("company_id", activeCompany.id) : q.is("company_id", null);
     const { data } = await q;
     setPartners((data as Partner[]) || []);
   };
 
   const loadHistory = async () => {
     let q: any = supabase.from("profit_distributions").select("*, partner_distributions(*)").order("created_at", { ascending: false }).limit(50);
-    if (activeCompany) q = q.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    q = activeCompany ? q.eq("company_id", activeCompany.id) : q.is("company_id", null);
     const { data } = await q;
     setHistory((data as any[]) || []);
   };
@@ -91,10 +91,12 @@ export default function Diretoria() {
   // Calcula automaticamente faturamento/despesas/impostos/custos do período via dados existentes
   const recalcFinancials = async () => {
     const start = period.start, end = period.end;
+    const cid = activeCompany?.id ?? null;
+    const apply = (q: any) => cid ? q.eq("company_id", cid) : q.is("company_id", null);
     const [recv, pay, tx] = await Promise.all([
-      supabase.from("receivables").select("amount, cost").eq("received", true).gte("due_date", start).lte("due_date", end),
-      supabase.from("payables").select("amount, category").eq("paid", true).gte("due_date", start).lte("due_date", end),
-      supabase.from("transactions").select("amount, type, category").gte("date", start).lte("date", end),
+      apply(supabase.from("receivables").select("amount, cost").eq("received", true).gte("due_date", start).lte("due_date", end)),
+      apply(supabase.from("payables").select("amount, category").eq("paid", true).gte("due_date", start).lte("due_date", end)),
+      apply(supabase.from("transactions").select("amount, type, category").gte("date", start).lte("date", end)),
     ]);
     const recvSum = (recv.data || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
     const recvCostSum = (recv.data || []).reduce((s, r: any) => s + Number(r.cost || 0), 0);
