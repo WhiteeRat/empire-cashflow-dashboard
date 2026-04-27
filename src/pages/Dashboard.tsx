@@ -409,6 +409,56 @@ export default function Dashboard() {
             <span className="text-sm text-muted-foreground">Total previsto</span>
             <span className="font-display text-xl text-gold">{fmtBRL(distribuicao)}</span>
           </div>
+
+          {distributions.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Distribuições registradas ({distributions.length})</p>
+              <div className="space-y-2">
+                {distributions.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30 flex-wrap">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{d.period_label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(d.period_start).toLocaleDateString("pt-BR")} → {new Date(d.period_end).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    {editDistId === d.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-8 w-32"
+                          value={editDistTotal}
+                          onChange={(e) => setEditDistTotal(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveDistribution(d.id);
+                            if (e.key === "Escape") setEditDistId(null);
+                          }}
+                          autoFocus
+                        />
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={() => saveDistribution(d.id)}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditDistId(null)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <span className="font-display text-base text-primary-glow whitespace-nowrap">{fmtBRL(Number(d.total_distributed))}</span>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => startEditDistribution(d)} title="Editar">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteDistribution(d)} title="Excluir">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
