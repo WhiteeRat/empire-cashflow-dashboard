@@ -2,3 +2,6 @@ project_id = "pghwrkasifljtujcuiaa"
 
 [functions.parse-income-statement]
 verify_jwt = true
+
+[functions.imperar-insights]
+verify_jwt = true
