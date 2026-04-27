@@ -76,25 +76,37 @@ export default function Contabilidade() {
     if (ts) setSettings(ts as any);
     else setSettings(defaultSettings);
 
-    // Faturamento do ano = recebíveis recebidos no ano + informes do mesmo base_year
-    // Antes filtrávamos apenas por receivables.due_date >= "{anoAtual}-01-01" SEM teto superior,
-    // o que somava também 2027+. Agora delimitamos com gte/lte e somamos os informes.
+    // Lê preferência de integração Dashboard ↔ Contabilidade
+    const { data: us } = await supabase.from("user_settings")
+      .select("link_accounting_to_dashboard").eq("user_id", user.id).maybeSingle();
+    const linked = !!(us as any)?.link_accounting_to_dashboard;
+
     const currentYear = new Date().getFullYear();
     const yearStart = `${currentYear}-01-01`;
     const yearEnd = `${currentYear}-12-31`;
+
+    // Recebíveis recebidos no ano (sempre considerados — base do faturamento real)
     let recQ: any = supabase.from("receivables").select("amount").eq("received", true)
       .gte("due_date", yearStart).lte("due_date", yearEnd);
     if (activeCompany) recQ = recQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: rec } = await recQ;
     const recvSum = ((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
-    // Informes do ano (somatório de tributável + isento)
+    // Informes do ano (somatório de tributável + isento) — fonte alternativa quando NÃO está linkado
     let incQ: any = supabase.from("income_statements").select("taxable_income, exempt_income").eq("base_year", currentYear);
     if (activeCompany) incQ = incQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: inc } = await incQ;
     const incSum = ((inc as any[]) || []).reduce((s, r: any) => s + Number(r.taxable_income || 0) + Number(r.exempt_income || 0), 0);
 
-    setRevenueYear(recvSum + incSum);
+    // Receitas registradas como "transactions" do Dashboard
+    let txQ: any = supabase.from("transactions").select("amount, type")
+      .eq("type", "receita").gte("date", yearStart).lte("date", yearEnd);
+    if (activeCompany) txQ = txQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    const { data: tx } = await txQ;
+    const txSum = ((tx as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
+
+    // Quando o toggle está ativo: usar Dashboard em tempo real (recv + tx); se desativado: comportamento clássico (recv + informes)
+    setRevenueYear(linked ? (recvSum + txSum) : (recvSum + incSum));
 
     // Histórico de informes (todos)
     let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(100);
