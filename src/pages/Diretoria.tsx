@@ -234,9 +234,69 @@ export default function Diretoria() {
   };
 
   const delHistory = async (id: string) => {
-    if (!confirm("Excluir esta distribuição?")) return;
+    if (!confirm("Excluir esta distribuição? Os valores rateados também serão estornados (removidos).")) return;
+    // RLS + cascade lógico: removemos os filhos primeiro para garantir limpeza histórica.
+    await supabase.from("partner_distributions").delete().eq("distribution_id", id);
     await supabase.from("profit_distributions").delete().eq("id", id);
+    toast.success("Distribuição excluída e estornada");
     loadHistory();
+  };
+
+  // ===== Edição de distribuição salva =====
+  const [editDist, setEditDist] = useState<any | null>(null);
+  const [editRows, setEditRows] = useState<Array<{ id?: string; partner_id: string; partner_name: string; share_percent: number; amount: number }>>([]);
+  const [editApur, setEditApur] = useState({ revenue: 0, expenses: 0, taxes: 0, costs: 0, notes: "" });
+
+  const openEditDist = (h: any) => {
+    setEditDist(h);
+    setEditApur({ revenue: Number(h.revenue || 0), expenses: Number(h.expenses || 0), taxes: Number(h.taxes || 0), costs: Number(h.costs || 0), notes: h.notes || "" });
+    setEditRows((h.partner_distributions || []).map((p: any) => ({
+      id: p.id, partner_id: p.partner_id, partner_name: p.partner_name,
+      share_percent: Number(p.share_percent), amount: Number(p.amount),
+    })));
+  };
+
+  const editNetProfit = editApur.revenue - editApur.expenses - editApur.taxes - editApur.costs;
+  const editTotalDistributed = editRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+  const saveEditDist = async () => {
+    if (!editDist) return;
+    if (editTotalDistributed > editNetProfit + 0.01) {
+      return toast.error("Total rateado excede o lucro líquido recalculado");
+    }
+    const { error: e1 } = await supabase.from("profit_distributions").update({
+      revenue: editApur.revenue, expenses: editApur.expenses, taxes: editApur.taxes, costs: editApur.costs,
+      net_profit: editNetProfit, total_distributed: editTotalDistributed, notes: editApur.notes || null,
+    }).eq("id", editDist.id);
+    if (e1) return toast.error(e1.message);
+    // Atualiza cada linha individualmente, mantendo IDs históricos.
+    for (const r of editRows) {
+      if (!r.id) continue;
+      await supabase.from("partner_distributions").update({
+        amount: r.amount, share_percent: r.share_percent,
+      }).eq("id", r.id);
+    }
+    toast.success("Distribuição atualizada — relatórios recalculados");
+    setEditDist(null);
+    loadHistory();
+  };
+
+  /** Exporta o histórico de distribuições para XLSX. */
+  const exportHistoryXlsx = () => {
+    if (!history.length) return toast.error("Nada para exportar");
+    const rows = history.flatMap(h =>
+      (h.partner_distributions || []).map((p: any) => ({
+        Data: fmtDate(h.created_at?.slice(0, 10)),
+        Período: h.period_label,
+        Modo: h.mode,
+        Sócio: p.partner_name,
+        "Participação (%)": Number(p.share_percent),
+        Valor: Number(p.amount),
+        "Lucro Líquido": Number(h.net_profit),
+        "Total Distribuído": Number(h.total_distributed),
+      }))
+    );
+    exportToXlsx(rows, `distribuicao-historico-${new Date().toISOString().slice(0, 10)}`, "Distribuições");
   };
 
   return (
