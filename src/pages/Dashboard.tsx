@@ -48,14 +48,19 @@ export default function Dashboard() {
     const yearStart = `${currentYear}-01-01`;
     const yearEnd = `${currentYear}-12-31`;
     const [b, p, t, settings, inc, wd, dist] = await Promise.all([
-      supabase.from("banks").select("*").order("created_at"),
-      supabase.from("partners").select("*").order("created_at"),
-      supabase.from("transactions").select("*").order("date", { ascending: false }),
+      scope(supabase.from("banks").select("*").order("created_at"), companyId),
+      scope(supabase.from("partners").select("*").order("created_at"), companyId),
+      scope(supabase.from("transactions").select("*").order("date", { ascending: false }), companyId),
       supabase.from("user_settings").select("link_accounting_to_dashboard").eq("user_id", user.id).maybeSingle(),
-      supabase.from("income_statements").select("taxable_income, exempt_income, base_year").eq("base_year", currentYear),
-      supabase.from("partner_withdrawals").select("*").gte("date", yearStart).lte("date", yearEnd),
-      supabase.from("profit_distributions").select("id, total_distributed, net_profit, period_start, period_end, period_label, created_at")
-        .gte("period_start", yearStart).lte("period_end", yearEnd).order("created_at", { ascending: false }),
+      scope(supabase.from("income_statements").select("taxable_income, exempt_income, base_year").eq("base_year", currentYear), companyId),
+      scope(supabase.from("partner_withdrawals").select("*").gte("date", yearStart).lte("date", yearEnd), companyId),
+      scope(
+        supabase.from("profit_distributions")
+          .select("id, total_distributed, net_profit, period_start, period_end, period_label, created_at")
+          .gte("period_start", yearStart).lte("period_end", yearEnd)
+          .order("created_at", { ascending: false }),
+        companyId
+      ),
     ]);
     if (b.data) setBanks(b.data as any);
     if (p.data) setPartners(p.data as any);
@@ -67,7 +72,7 @@ export default function Dashboard() {
     setDistributions((dist.data as any[]) || []);
   };
 
-  useEffect(() => { if (user) load(); }, [user]);
+  useEffect(() => { if (user) load(); }, [user, companyId]);
 
   const baseReceita = txs.filter(t => t.type === "receita").reduce((s, t) => s + Number(t.amount), 0);
   const receita = baseReceita + (linkAccounting ? accountingRevenue : 0);
