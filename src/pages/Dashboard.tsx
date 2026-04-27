@@ -226,7 +226,13 @@ export default function Dashboard() {
       if (!inserts.length) return toast.error("Nenhuma linha válida no arquivo");
       const { error } = await supabase.from("transactions").insert(inserts);
       if (error) toast.error(error.message);
-      else { toast.success(`${inserts.length} lançamentos importados`); load(); }
+      else {
+        // Atualiza saldo do banco com o delta total
+        const delta = inserts.reduce((s, r) => s + (r.type === "receita" ? r.amount : -r.amount), 0);
+        const bank = banks.find(b => b.id === bankId);
+        if (bank) await supabase.from("banks").update({ balance: Number(bank.balance || 0) + delta }).eq("id", bankId);
+        toast.success(`${inserts.length} lançamentos importados`); load();
+      }
     } catch (e: any) { toast.error("Erro ao ler arquivo"); }
   };
 
