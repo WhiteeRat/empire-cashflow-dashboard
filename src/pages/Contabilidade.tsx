@@ -203,6 +203,50 @@ export default function Contabilidade() {
   const totalExempt = useMemo(() => extracted.reduce((s, i) => s + Number(i.exempt_income || 0), 0), [extracted]);
   const totalIR = useMemo(() => extracted.reduce((s, i) => s + Number(i.ir_withheld || 0), 0), [extracted]);
 
+  /** Exporta histórico de informes em XLSX. */
+  const exportStatementsXlsx = () => {
+    if (!statements.length) return toast.error("Nada para exportar");
+    exportToXlsx(statements.map(s => ({
+      "Ano-base": s.base_year,
+      Fonte: s.source_name,
+      CNPJ: s.source_cnpj || "",
+      Tributável: Number(s.taxable_income),
+      Isento: Number(s.exempt_income),
+      "IR Retido": Number(s.ir_withheld),
+      Previdência: Number(s.contributions),
+      Origem: s.origin,
+      Status: s.status,
+    })), `contabilidade-informes-${new Date().toISOString().slice(0, 10)}`, "Informes");
+  };
+
+  /** Exporta histórico de informes em PDF. */
+  const exportStatementsPdf = () => {
+    if (!statements.length) return toast.error("Nada para exportar");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pw, 60, "F");
+    doc.setTextColor(96, 165, 250);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(18);
+    doc.text("Informes de Rendimentos", 40, 38);
+    doc.setTextColor(200, 220, 255); doc.setFontSize(9);
+    doc.text(`Emitido em ${new Date().toLocaleDateString("pt-BR")}`, pw - 40, 38, { align: "right" });
+    autoTable(doc, {
+      startY: 80,
+      head: [["Ano", "Fonte", "CNPJ", "Tributável", "Isento", "IR Retido"]],
+      body: statements.map(s => [
+        s.base_year, s.source_name, s.source_cnpj || "—",
+        fmtBRL(s.taxable_income), fmtBRL(s.exempt_income), fmtBRL(s.ir_withheld),
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: [96, 165, 250] },
+      columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
+      margin: { left: 40, right: 40 },
+      styles: { fontSize: 9 },
+    });
+    doc.save(`contabilidade-informes-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title="Contabilidade" subtitle="Controle fiscal, informes de rendimentos e limites tributários" />
