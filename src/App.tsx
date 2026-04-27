@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CompanyProvider } from "@/contexts/CompanyContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { AppLayout } from "@/components/AppLayout";
+import { GuardedRoute } from "@/components/GuardedRoute";
 
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -18,6 +19,7 @@ import Metricas from "./pages/Metricas";
 import Equipe from "./pages/Equipe";
 import Contabilidade from "./pages/Contabilidade";
 import Diretoria from "./pages/Diretoria";
+import Imperar from "./pages/Imperar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,15 +34,16 @@ const App = () => (
           <CompanyProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<ProtectedRoute><AppLayout><Dashboard /></AppLayout></ProtectedRoute>} />
-            <Route path="/dre" element={<ProtectedRoute><AppLayout><DRE /></AppLayout></ProtectedRoute>} />
-            <Route path="/fluxo" element={<ProtectedRoute><AppLayout><FluxoCaixa /></AppLayout></ProtectedRoute>} />
-            <Route path="/orcamentos" element={<ProtectedRoute><AppLayout><Orcamentos /></AppLayout></ProtectedRoute>} />
-            <Route path="/produtividade" element={<ProtectedRoute><AppLayout><Produtividade /></AppLayout></ProtectedRoute>} />
-            <Route path="/metricas" element={<ProtectedRoute><AppLayout><Metricas /></AppLayout></ProtectedRoute>} />
-            <Route path="/equipe" element={<ProtectedRoute><AppLayout><Equipe /></AppLayout></ProtectedRoute>} />
-            <Route path="/contabilidade" element={<ProtectedRoute><AppLayout><Contabilidade /></AppLayout></ProtectedRoute>} />
-            <Route path="/diretoria" element={<ProtectedRoute><AppLayout><Diretoria /></AppLayout></ProtectedRoute>} />
+            <Route path="/"              element={<GuardedRoute moduleKey="dashboard"><Dashboard /></GuardedRoute>} />
+            <Route path="/dre"           element={<GuardedRoute moduleKey="dre"><DRE /></GuardedRoute>} />
+            <Route path="/fluxo"         element={<GuardedRoute moduleKey="fluxo"><FluxoCaixa /></GuardedRoute>} />
+            <Route path="/orcamentos"    element={<GuardedRoute moduleKey="orcamentos"><Orcamentos /></GuardedRoute>} />
+            <Route path="/produtividade" element={<GuardedRoute moduleKey="produtividade"><Produtividade /></GuardedRoute>} />
+            <Route path="/metricas"      element={<GuardedRoute moduleKey="metricas"><Metricas /></GuardedRoute>} />
+            <Route path="/equipe"        element={<GuardedRoute moduleKey="equipe"><Equipe /></GuardedRoute>} />
+            <Route path="/contabilidade" element={<GuardedRoute moduleKey="contabilidade"><Contabilidade /></GuardedRoute>} />
+            <Route path="/diretoria"     element={<GuardedRoute moduleKey="diretoria"><Diretoria /></GuardedRoute>} />
+            <Route path="/imperar"       element={<GuardedRoute moduleKey="imperar"><Imperar /></GuardedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </CompanyProvider>
