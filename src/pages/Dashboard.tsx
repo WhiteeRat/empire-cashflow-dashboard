@@ -130,6 +130,36 @@ export default function Dashboard() {
     else { toast.success("Banco excluído"); load(); }
   };
 
+  /** Exclui uma distribuição de lucro e seus rateios por sócio (estorno). */
+  const deleteDistribution = async (d: any) => {
+    if (!confirm(`Excluir distribuição "${d.period_label}" no valor de ${fmtBRL(Number(d.total_distributed || 0))}?`)) return;
+    // remove rateios primeiro para preservar integridade
+    const { error: e1 } = await supabase.from("partner_distributions").delete().eq("distribution_id", d.id);
+    if (e1) { toast.error(e1.message); return; }
+    const { error: e2 } = await supabase.from("profit_distributions").delete().eq("id", d.id);
+    if (e2) { toast.error(e2.message); return; }
+    toast.success("Distribuição excluída");
+    load();
+  };
+
+  const [editDistId, setEditDistId] = useState<string | null>(null);
+  const [editDistTotal, setEditDistTotal] = useState<string>("");
+
+  /** Inicia edição inline do total distribuído. */
+  const startEditDistribution = (d: any) => {
+    setEditDistId(d.id);
+    setEditDistTotal(String(d.total_distributed));
+  };
+
+  /** Salva o novo total distribuído (e ajusta net_profit se for menor). */
+  const saveDistribution = async (id: string) => {
+    const v = Number(editDistTotal);
+    if (Number.isNaN(v) || v < 0) { toast.error("Valor inválido"); return; }
+    const { error } = await supabase.from("profit_distributions").update({ total_distributed: v }).eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Distribuição atualizada"); setEditDistId(null); load(); }
+  };
+
   const addPartner = async () => {
     if (!partnerForm.name || !user) return;
     const { error } = await supabase.from("partners").insert({ name: partnerForm.name, share_percent: Number(partnerForm.share_percent) || 0, user_id: user.id });
@@ -379,6 +409,56 @@ export default function Dashboard() {
             <span className="text-sm text-muted-foreground">Total previsto</span>
             <span className="font-display text-xl text-gold">{fmtBRL(distribuicao)}</span>
           </div>
+
+          {distributions.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Distribuições registradas ({distributions.length})</p>
+              <div className="space-y-2">
+                {distributions.map((d) => (
+                  <div key={d.id} className="flex items-center justify-between gap-2 p-2 rounded-md bg-muted/30 flex-wrap">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{d.period_label}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(d.period_start).toLocaleDateString("pt-BR")} → {new Date(d.period_end).toLocaleDateString("pt-BR")}
+                      </p>
+                    </div>
+                    {editDistId === d.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          type="number"
+                          step="0.01"
+                          className="h-8 w-32"
+                          value={editDistTotal}
+                          onChange={(e) => setEditDistTotal(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveDistribution(d.id);
+                            if (e.key === "Escape") setEditDistId(null);
+                          }}
+                          autoFocus
+                        />
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-500" onClick={() => saveDistribution(d.id)}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setEditDistId(null)}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <span className="font-display text-base text-primary-glow whitespace-nowrap">{fmtBRL(Number(d.total_distributed))}</span>
+                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => startEditDistribution(d)} title="Editar">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => deleteDistribution(d)} title="Excluir">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </Card>
       </div>
     </div>
