@@ -296,6 +296,10 @@ export default function FluxoCaixa() {
     }));
     const { error } = await supabase.from("transactions").insert(inserts);
     if (error) return toast.error(error.message);
+    if (pdfBankId) {
+      const totalDelta = selected.reduce((s, r) => s + (r.type === "receita" ? r.amount : -r.amount), 0);
+      await applyBankDelta(pdfBankId, totalDelta);
+    }
     toast.success(`${inserts.length} lançamentos importados do PDF`);
     setPdfDialog(false); setPdfRows([]); load();
   };
