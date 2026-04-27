@@ -172,7 +172,7 @@ export default function Dashboard() {
 
   const addPartner = async () => {
     if (!partnerForm.name || !user) return;
-    const { error } = await supabase.from("partners").insert({ name: partnerForm.name, share_percent: Number(partnerForm.share_percent) || 0, user_id: user.id });
+    const { error } = await supabase.from("partners").insert(withCompany({ name: partnerForm.name, share_percent: Number(partnerForm.share_percent) || 0, user_id: user.id }, companyId));
     if (error) toast.error(error.message);
     else { toast.success("Sócio adicionado"); setPartnerDialog(false); setPartnerForm({ name: "", share_percent: "" }); load(); }
   };
@@ -225,6 +225,7 @@ export default function Dashboard() {
       const rows = await importSheet(file);
       const inserts = rows.map((r: any) => ({
         user_id: user!.id,
+        company_id: companyId,
         bank_id: bankId,
         date: r.data || r.date || new Date().toISOString().slice(0, 10),
         description: String(r.descricao || r.description || r.historico || "Importado"),
