@@ -258,6 +258,7 @@ export default function FluxoCaixa() {
         const v = Number(r.valor || r.amount || 0);
         return {
           user_id: user!.id,
+          company_id: companyId,
           date: r.data || r.date || new Date().toISOString().slice(0, 10),
           description: String(r.descricao || r.description || r.historico || "Importado"),
           amount: Math.abs(v),
@@ -291,6 +292,7 @@ export default function FluxoCaixa() {
     if (!selected.length) return toast.error("Selecione ao menos uma linha");
     const inserts = selected.map(r => ({
       user_id: user!.id,
+      company_id: companyId,
       date: r.date,
       description: r.description,
       amount: r.amount,
