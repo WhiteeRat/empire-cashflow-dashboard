@@ -97,7 +97,7 @@ export function SubscriptionSection() {
 
   const updatePlanPrice = async (planId: string, field: "price_monthly" | "price_one_time", value: number | null) => {
     if (!isSuperAdmin) return;
-    const { error } = await supabase.from("plans").update({ [field]: value }).eq("id", planId);
+    const { error } = await supabase.from("plans").update({ [field]: value } as any).eq("id", planId);
     if (error) return toast.error(error.message);
     toast.success("Valor atualizado");
     await load();
