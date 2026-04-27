@@ -80,7 +80,8 @@ export default function Dashboard() {
   const distribuicaoHint = distribuicaoReal > 0
     ? `Real ${distributions.length} registro(s) — sangrias ${fmtBRL(totalSangrias)}`
     : (proLaboreAnual > 0 ? `Pró-labore anual previsto` : "Nenhuma distribuição registrada");
-  const capitalGiro = totalBancos - distribuicao;
+  // Capital de giro = soma dos saldos por banco (caixa disponível real)
+  const capitalGiro = totalBancos;
 
   // chart data: últimos 6 meses
   const chartData = (() => {
@@ -254,7 +255,7 @@ export default function Dashboard() {
         <StatCard title="Despesas & Custos" value={fmtBRL(despesa)} icon={TrendingDown} tone="destructive" hint="Saídas operacionais" />
         <StatCard title="Lucro Líquido" value={fmtBRL(lucro)} icon={Coins} tone="gold" hint={`Margem ${receita ? ((lucro / receita) * 100).toFixed(1) : 0}%`} />
         <StatCard title={distribuicaoReal > 0 ? "Distribuição Realizada" : "Distribuição Prevista"} value={fmtBRL(distribuicao)} icon={PiggyBank} tone="info" hint={distribuicaoHint} />
-        <StatCard title="Capital de Giro" value={fmtBRL(capitalGiro)} icon={Wallet} tone="warning" hint="Disponível em caixa" />
+        <StatCard title="Capital de Giro" value={fmtBRL(capitalGiro)} icon={Wallet} tone="warning" hint={`Soma de ${banks.length} banco(s)`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
