@@ -13,6 +13,9 @@ import { fmtBRL } from "@/lib/format";
 import { exportToXlsx, importSheet } from "@/lib/exporter";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend } from "recharts";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Bank = { id: string; name: string; balance: number };
 type Partner = { id: string; name: string; share_percent: number };
