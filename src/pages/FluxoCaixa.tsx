@@ -136,6 +136,16 @@ export default function FluxoCaixa() {
 
 
   // ===== Transactions =====
+  // Aplica delta no saldo do banco (positivo = entrada, negativo = saída)
+  const applyBankDelta = async (bankId: string | null | undefined, delta: number) => {
+    if (!bankId || !delta) return;
+    const { data } = await supabase.from("banks").select("balance").eq("id", bankId).maybeSingle();
+    if (!data) return;
+    const newBal = Number(data.balance || 0) + delta;
+    await supabase.from("banks").update({ balance: newBal }).eq("id", bankId);
+  };
+  const txDelta = (type: string, amount: number) => (type === "receita" ? 1 : -1) * Math.abs(Number(amount) || 0);
+
   const openNewTx = () => { setTxForm({ ...emptyTx }); setTxDialog(true); };
   const openEditTx = (t: AnyRec) => {
     setTxForm({ id: t.id, date: t.date, description: t.description, category: t.category || "", type: t.type, amount: String(t.amount), bank_id: t.bank_id || "" });
@@ -151,18 +161,37 @@ export default function FluxoCaixa() {
       amount: Number(txForm.amount),
       bank_id: (txForm.bank_id || null) as string | null,
     };
-    const { error } = txForm.id
-      ? await supabase.from("transactions").update(payload).eq("id", txForm.id)
-      : await supabase.from("transactions").insert({ ...payload, user_id: user!.id });
-    if (error) return toast.error(error.message);
+    if (txForm.id) {
+      // Reverter saldo antigo e aplicar novo
+      const prev = txs.find(t => t.id === txForm.id);
+      const { error } = await supabase.from("transactions").update(payload).eq("id", txForm.id);
+      if (error) return toast.error(error.message);
+      if (prev) await applyBankDelta(prev.bank_id, -txDelta(prev.type, prev.amount));
+      await applyBankDelta(payload.bank_id, txDelta(payload.type, payload.amount));
+    } else {
+      const { error } = await supabase.from("transactions").insert({ ...payload, user_id: user!.id });
+      if (error) return toast.error(error.message);
+      await applyBankDelta(payload.bank_id, txDelta(payload.type, payload.amount));
+    }
     toast.success(txForm.id ? "Lançamento atualizado" : "Lançamento adicionado");
     setTxDialog(false); load();
   };
-  const delTx = async (id: string) => { await supabase.from("transactions").delete().eq("id", id); load(); };
+  const delTx = async (id: string) => {
+    const prev = txs.find(t => t.id === id);
+    await supabase.from("transactions").delete().eq("id", id);
+    if (prev) await applyBankDelta(prev.bank_id, -txDelta(prev.type, prev.amount));
+    load();
+  };
 
   const inlineUpdateTx = async (id: string, field: string, value: any) => {
     const v = field === "amount" ? Number(value) : value;
+    const prev = txs.find(t => t.id === id);
     await (supabase.from("transactions") as any).update({ [field]: v }).eq("id", id);
+    if (prev && (field === "amount" || field === "type" || field === "bank_id")) {
+      await applyBankDelta(prev.bank_id, -txDelta(prev.type, prev.amount));
+      const next = { ...prev, [field]: v };
+      await applyBankDelta(next.bank_id, txDelta(next.type, next.amount));
+    }
     setInlineEdit(null); load();
   };
 
