@@ -142,9 +142,42 @@ export default function Dashboard() {
       { Métrica: "Faturamento", Valor: receita },
       { Métrica: "Despesas", Valor: despesa },
       { Métrica: "Lucro Líquido", Valor: lucro },
-      { Métrica: "Distribuição Prevista", Valor: distribuicao },
+      { Métrica: "Distribuição (real ou prevista)", Valor: distribuicao },
       { Métrica: "Capital de Giro", Valor: capitalGiro },
     ], `imperio-resumo-${new Date().toISOString().slice(0, 10)}`, "Resumo");
+  };
+
+  /** Exporta um PDF com o resumo executivo do dashboard. */
+  const exportSummaryPdf = () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pw, 60, "F");
+    doc.setTextColor(96, 165, 250);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Resumo Executivo — Dashboard", 40, 38);
+    doc.setTextColor(200, 220, 255);
+    doc.setFontSize(9);
+    doc.text(`Emitido em ${new Date().toLocaleDateString("pt-BR")}`, pw - 40, 38, { align: "right" });
+    autoTable(doc, {
+      startY: 90,
+      head: [["Métrica", "Valor"]],
+      body: [
+        ["Faturamento", fmtBRL(receita)],
+        ["Despesas", fmtBRL(despesa)],
+        ["Lucro Líquido", fmtBRL(lucro)],
+        ["Distribuição (real ou prevista)", fmtBRL(distribuicao)],
+        ["Capital de Giro", fmtBRL(capitalGiro)],
+        ["Total em Bancos", fmtBRL(totalBancos)],
+        ["Sangrias do ano", fmtBRL(totalSangrias)],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: [96, 165, 250] },
+      columnStyles: { 1: { halign: "right" } },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save(`imperio-resumo-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const importExtrato = async (file: File, bankId: string) => {
