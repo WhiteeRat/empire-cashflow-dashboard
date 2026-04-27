@@ -88,20 +88,20 @@ export default function Contabilidade() {
     // Recebíveis recebidos no ano (sempre considerados — base do faturamento real)
     let recQ: any = supabase.from("receivables").select("amount").eq("received", true)
       .gte("due_date", yearStart).lte("due_date", yearEnd);
-    if (activeCompany) recQ = recQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    recQ = activeCompany ? recQ.eq("company_id", activeCompany.id) : recQ.is("company_id", null);
     const { data: rec } = await recQ;
     const recvSum = ((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
     // Informes do ano (somatório de tributável + isento) — fonte alternativa quando NÃO está linkado
     let incQ: any = supabase.from("income_statements").select("taxable_income, exempt_income").eq("base_year", currentYear);
-    if (activeCompany) incQ = incQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    incQ = activeCompany ? incQ.eq("company_id", activeCompany.id) : incQ.is("company_id", null);
     const { data: inc } = await incQ;
     const incSum = ((inc as any[]) || []).reduce((s, r: any) => s + Number(r.taxable_income || 0) + Number(r.exempt_income || 0), 0);
 
     // Receitas registradas como "transactions" do Dashboard
     let txQ: any = supabase.from("transactions").select("amount, type")
       .eq("type", "receita").gte("date", yearStart).lte("date", yearEnd);
-    if (activeCompany) txQ = txQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    txQ = activeCompany ? txQ.eq("company_id", activeCompany.id) : txQ.is("company_id", null);
     const { data: tx } = await txQ;
     const txSum = ((tx as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
@@ -110,7 +110,7 @@ export default function Contabilidade() {
 
     // Histórico de informes (todos)
     let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(100);
-    if (activeCompany) stQ = stQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    stQ = activeCompany ? stQ.eq("company_id", activeCompany.id) : stQ.is("company_id", null);
     const { data: st } = await stQ;
     setStatements((st as any[]) || []);
 
