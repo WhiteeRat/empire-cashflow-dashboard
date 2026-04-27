@@ -105,10 +105,10 @@ export default function FluxoCaixa() {
       bank_id: wForm.bank_id || null,
       applied_to_prolabore: !!wForm.applied_to_prolabore,
     };
-    const { error } = await supabase.from("partner_withdrawals").insert({ ...payload, user_id: user!.id });
+    const { error } = await supabase.from("partner_withdrawals").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     // Cria também um lançamento de despesa no fluxo de caixa para refletir a saída
-    await supabase.from("transactions").insert({
+    await supabase.from("transactions").insert(withCompany({
       user_id: user!.id,
       date: wForm.date,
       type: "despesa",
@@ -116,7 +116,7 @@ export default function FluxoCaixa() {
       description: `Sangria — ${partner.name}`,
       category: "Retirada de Sócio",
       bank_id: wForm.bank_id || null,
-    });
+    }, companyId));
     if (wForm.bank_id) await applyBankDelta(wForm.bank_id, -amount);
     toast.success("Sangria registrada");
     setWOpen(false); load();
@@ -174,7 +174,7 @@ export default function FluxoCaixa() {
       if (prev) await applyBankDelta(prev.bank_id, -txDelta(prev.type, prev.amount));
       await applyBankDelta(payload.bank_id, txDelta(payload.type, payload.amount));
     } else {
-      const { error } = await supabase.from("transactions").insert({ ...payload, user_id: user!.id });
+      const { error } = await supabase.from("transactions").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
       if (error) return toast.error(error.message);
       await applyBankDelta(payload.bank_id, txDelta(payload.type, payload.amount));
     }
@@ -217,7 +217,7 @@ export default function FluxoCaixa() {
     };
     const { error } = payForm.id
       ? await supabase.from("payables").update(payload).eq("id", payForm.id)
-      : await supabase.from("payables").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("payables").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(payForm.id ? "Conta atualizada" : "Conta adicionada");
     setPayDialog(false); load();
@@ -242,7 +242,7 @@ export default function FluxoCaixa() {
     };
     const { error } = recForm.id
       ? await supabase.from("receivables").update(payload).eq("id", recForm.id)
-      : await supabase.from("receivables").insert({ ...payload, user_id: user!.id });
+      : await supabase.from("receivables").insert(withCompany({ ...payload, user_id: user!.id }, companyId));
     if (error) return toast.error(error.message);
     toast.success(recForm.id ? "Recebível atualizado" : "Recebível adicionado");
     setRecDialog(false); load();
