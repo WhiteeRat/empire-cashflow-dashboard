@@ -80,7 +80,8 @@ export default function Dashboard() {
   const distribuicaoHint = distribuicaoReal > 0
     ? `Real ${distributions.length} registro(s) — sangrias ${fmtBRL(totalSangrias)}`
     : (proLaboreAnual > 0 ? `Pró-labore anual previsto` : "Nenhuma distribuição registrada");
-  const capitalGiro = totalBancos - distribuicao;
+  // Capital de giro = soma dos saldos por banco (caixa disponível real)
+  const capitalGiro = totalBancos;
 
   // chart data: últimos 6 meses
   const chartData = (() => {
