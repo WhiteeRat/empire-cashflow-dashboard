@@ -100,8 +100,8 @@ export function SettingsDialog() {
           <div className="text-xs uppercase tracking-widest text-muted-foreground pt-2 border-t border-border/40">Integrações</div>
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
-              <Label>Vincular faturamento contábil ao Dashboard</Label>
-              <span className="text-xs text-muted-foreground">Soma os informes de rendimentos importados à receita do Dashboard</span>
+              <Label>Usar faturamento do Dashboard em tempo real na Contabilidade</Label>
+              <span className="text-xs text-muted-foreground">Quando ativo, a Contabilidade soma receitas (transações + recebíveis) do Dashboard automaticamente, dispensando importação manual de informes. O Dashboard também passa a exibir o total contábil registrado.</span>
             </div>
             <Switch checked={s.link_accounting_to_dashboard} onCheckedChange={v => save({ link_accounting_to_dashboard: v })} />
           </div>

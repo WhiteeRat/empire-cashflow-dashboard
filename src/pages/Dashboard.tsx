@@ -13,6 +13,9 @@ import { fmtBRL } from "@/lib/format";
 import { exportToXlsx, importSheet } from "@/lib/exporter";
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, BarChart, Bar, Legend } from "recharts";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Bank = { id: string; name: string; balance: number };
 type Partner = { id: string; name: string; share_percent: number };
@@ -33,17 +36,22 @@ export default function Dashboard() {
   const [linkAccounting, setLinkAccounting] = useState(false);
   const [accountingRevenue, setAccountingRevenue] = useState(0);
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
+  const [distributions, setDistributions] = useState<any[]>([]);
 
   const load = async () => {
     if (!user) return;
     const currentYear = new Date().getFullYear();
-    const [b, p, t, settings, inc, wd] = await Promise.all([
+    const yearStart = `${currentYear}-01-01`;
+    const yearEnd = `${currentYear}-12-31`;
+    const [b, p, t, settings, inc, wd, dist] = await Promise.all([
       supabase.from("banks").select("*").order("created_at"),
       supabase.from("partners").select("*").order("created_at"),
       supabase.from("transactions").select("*").order("date", { ascending: false }),
       supabase.from("user_settings").select("link_accounting_to_dashboard").eq("user_id", user.id).maybeSingle(),
       supabase.from("income_statements").select("taxable_income, exempt_income, base_year").eq("base_year", currentYear),
-      supabase.from("partner_withdrawals").select("*").gte("date", `${currentYear}-01-01`).lte("date", `${currentYear}-12-31`),
+      supabase.from("partner_withdrawals").select("*").gte("date", yearStart).lte("date", yearEnd),
+      supabase.from("profit_distributions").select("id, total_distributed, net_profit, period_start, period_end, period_label, created_at")
+        .gte("period_start", yearStart).lte("period_end", yearEnd).order("created_at", { ascending: false }),
     ]);
     if (b.data) setBanks(b.data as any);
     if (p.data) setPartners(p.data as any);
@@ -52,6 +60,7 @@ export default function Dashboard() {
     const incSum = ((inc.data as any[]) || []).reduce((s, r) => s + Number(r.taxable_income || 0) + Number(r.exempt_income || 0), 0);
     setAccountingRevenue(incSum);
     setWithdrawals((wd.data as any[]) || []);
+    setDistributions((dist.data as any[]) || []);
   };
 
   useEffect(() => { if (user) load(); }, [user]);
@@ -61,10 +70,16 @@ export default function Dashboard() {
   const despesa = txs.filter(t => t.type === "despesa").reduce((s, t) => s + Number(t.amount), 0);
   const lucro = receita - despesa;
   const totalBancos = banks.reduce((s, b) => s + Number(b.balance), 0);
-  // Distribuição prevista = soma do pró-labore mensal × 12 (anual) — fallback antigo se não houver sócios
+
+  // Distribuição REAL do ano (registros confirmados em profit_distributions).
+  // Fallback: se não há distribuições salvas, mostra previsto = pró-labore anual.
+  const distribuicaoReal = distributions.reduce((s, d) => s + Number(d.total_distributed || 0), 0);
   const proLaboreAnual = partners.reduce((s: number, p: any) => s + Number(p.pro_labore || 0) * 12, 0);
   const totalSangrias = withdrawals.reduce((s, w) => s + Number(w.amount || 0), 0);
-  const distribuicao = proLaboreAnual > 0 ? proLaboreAnual : Math.max(0, lucro * 0.5);
+  const distribuicao = distribuicaoReal > 0 ? distribuicaoReal : proLaboreAnual;
+  const distribuicaoHint = distribuicaoReal > 0
+    ? `Real ${distributions.length} registro(s) — sangrias ${fmtBRL(totalSangrias)}`
+    : (proLaboreAnual > 0 ? `Pró-labore anual previsto` : "Nenhuma distribuição registrada");
   const capitalGiro = totalBancos - distribuicao;
 
   // chart data: últimos 6 meses
@@ -127,9 +142,42 @@ export default function Dashboard() {
       { Métrica: "Faturamento", Valor: receita },
       { Métrica: "Despesas", Valor: despesa },
       { Métrica: "Lucro Líquido", Valor: lucro },
-      { Métrica: "Distribuição Prevista", Valor: distribuicao },
+      { Métrica: "Distribuição (real ou prevista)", Valor: distribuicao },
       { Métrica: "Capital de Giro", Valor: capitalGiro },
     ], `imperio-resumo-${new Date().toISOString().slice(0, 10)}`, "Resumo");
+  };
+
+  /** Exporta um PDF com o resumo executivo do dashboard. */
+  const exportSummaryPdf = () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pw, 60, "F");
+    doc.setTextColor(96, 165, 250);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("Resumo Executivo — Dashboard", 40, 38);
+    doc.setTextColor(200, 220, 255);
+    doc.setFontSize(9);
+    doc.text(`Emitido em ${new Date().toLocaleDateString("pt-BR")}`, pw - 40, 38, { align: "right" });
+    autoTable(doc, {
+      startY: 90,
+      head: [["Métrica", "Valor"]],
+      body: [
+        ["Faturamento", fmtBRL(receita)],
+        ["Despesas", fmtBRL(despesa)],
+        ["Lucro Líquido", fmtBRL(lucro)],
+        ["Distribuição (real ou prevista)", fmtBRL(distribuicao)],
+        ["Capital de Giro", fmtBRL(capitalGiro)],
+        ["Total em Bancos", fmtBRL(totalBancos)],
+        ["Sangrias do ano", fmtBRL(totalSangrias)],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: [96, 165, 250] },
+      columnStyles: { 1: { halign: "right" } },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save(`imperio-resumo-${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   const importExtrato = async (file: File, bankId: string) => {
@@ -157,9 +205,17 @@ export default function Dashboard() {
         title="Dashboard"
         subtitle="Visão soberana do seu Império financeiro"
         actions={
-          <Button onClick={exportSummary} variant="outline" className="gap-2 border-primary/40 hover:bg-primary/10">
-            <Download className="h-4 w-4" /> Exportar Resumo
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2 border-primary/40 hover:bg-primary/10">
+                <Download className="h-4 w-4" /> Exportar Resumo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportSummary}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportSummaryPdf}>PDF (.pdf)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
@@ -167,7 +223,7 @@ export default function Dashboard() {
         <StatCard title="Faturamento" value={fmtBRL(receita)} icon={TrendingUp} tone="success" hint={linkAccounting ? `Inclui ${fmtBRL(accountingRevenue)} contábil` : "Total de receitas"} />
         <StatCard title="Despesas & Custos" value={fmtBRL(despesa)} icon={TrendingDown} tone="destructive" hint="Saídas operacionais" />
         <StatCard title="Lucro Líquido" value={fmtBRL(lucro)} icon={Coins} tone="gold" hint={`Margem ${receita ? ((lucro / receita) * 100).toFixed(1) : 0}%`} />
-        <StatCard title="Distribuição Prevista" value={fmtBRL(distribuicao)} icon={PiggyBank} tone="info" hint={proLaboreAnual > 0 ? `Pró-labore anual (sangrias ${fmtBRL(totalSangrias)})` : "Sangria sócios (50%)"} />
+        <StatCard title={distribuicaoReal > 0 ? "Distribuição Realizada" : "Distribuição Prevista"} value={fmtBRL(distribuicao)} icon={PiggyBank} tone="info" hint={distribuicaoHint} />
         <StatCard title="Capital de Giro" value={fmtBRL(capitalGiro)} icon={Wallet} tone="warning" hint="Disponível em caixa" />
       </div>
 

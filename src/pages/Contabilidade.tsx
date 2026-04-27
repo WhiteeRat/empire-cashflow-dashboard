@@ -14,11 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save, Pencil } from "lucide-react";
+import { Calculator, AlertTriangle, FileUp, Loader2, Trash2, Plus, Save, Pencil, FileDown, FileSpreadsheet } from "lucide-react";
 import { fmtBRL } from "@/lib/format";
 import {
   IncomeStatementItem, parseSpreadsheet, extractPdfText, parseIncomeStatementWithAI, detectIssues,
 } from "@/lib/accountingImporter";
+import { exportToXlsx } from "@/lib/exporter";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 /** Limites padrão por regime (BRL/ano) — base 2026. Editáveis pelo usuário. */
 const REGIME_DEFAULTS: Record<string, { label: string; annual: number }> = {
@@ -72,25 +76,37 @@ export default function Contabilidade() {
     if (ts) setSettings(ts as any);
     else setSettings(defaultSettings);
 
-    // Faturamento do ano = recebíveis recebidos no ano + informes do mesmo base_year
-    // Antes filtrávamos apenas por receivables.due_date >= "{anoAtual}-01-01" SEM teto superior,
-    // o que somava também 2027+. Agora delimitamos com gte/lte e somamos os informes.
+    // Lê preferência de integração Dashboard ↔ Contabilidade
+    const { data: us } = await supabase.from("user_settings")
+      .select("link_accounting_to_dashboard").eq("user_id", user.id).maybeSingle();
+    const linked = !!(us as any)?.link_accounting_to_dashboard;
+
     const currentYear = new Date().getFullYear();
     const yearStart = `${currentYear}-01-01`;
     const yearEnd = `${currentYear}-12-31`;
+
+    // Recebíveis recebidos no ano (sempre considerados — base do faturamento real)
     let recQ: any = supabase.from("receivables").select("amount").eq("received", true)
       .gte("due_date", yearStart).lte("due_date", yearEnd);
     if (activeCompany) recQ = recQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: rec } = await recQ;
     const recvSum = ((rec as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
 
-    // Informes do ano (somatório de tributável + isento)
+    // Informes do ano (somatório de tributável + isento) — fonte alternativa quando NÃO está linkado
     let incQ: any = supabase.from("income_statements").select("taxable_income, exempt_income").eq("base_year", currentYear);
     if (activeCompany) incQ = incQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
     const { data: inc } = await incQ;
     const incSum = ((inc as any[]) || []).reduce((s, r: any) => s + Number(r.taxable_income || 0) + Number(r.exempt_income || 0), 0);
 
-    setRevenueYear(recvSum + incSum);
+    // Receitas registradas como "transactions" do Dashboard
+    let txQ: any = supabase.from("transactions").select("amount, type")
+      .eq("type", "receita").gte("date", yearStart).lte("date", yearEnd);
+    if (activeCompany) txQ = txQ.or(`company_id.eq.${activeCompany.id},company_id.is.null`);
+    const { data: tx } = await txQ;
+    const txSum = ((tx as any[]) || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
+
+    // Quando o toggle está ativo: usar Dashboard em tempo real (recv + tx); se desativado: comportamento clássico (recv + informes)
+    setRevenueYear(linked ? (recvSum + txSum) : (recvSum + incSum));
 
     // Histórico de informes (todos)
     let stQ: any = supabase.from("income_statements").select("*").order("created_at", { ascending: false }).limit(100);
@@ -198,6 +214,50 @@ export default function Contabilidade() {
   const totalTaxable = useMemo(() => extracted.reduce((s, i) => s + Number(i.taxable_income || 0), 0), [extracted]);
   const totalExempt = useMemo(() => extracted.reduce((s, i) => s + Number(i.exempt_income || 0), 0), [extracted]);
   const totalIR = useMemo(() => extracted.reduce((s, i) => s + Number(i.ir_withheld || 0), 0), [extracted]);
+
+  /** Exporta histórico de informes em XLSX. */
+  const exportStatementsXlsx = () => {
+    if (!statements.length) return toast.error("Nada para exportar");
+    exportToXlsx(statements.map(s => ({
+      "Ano-base": s.base_year,
+      Fonte: s.source_name,
+      CNPJ: s.source_cnpj || "",
+      Tributável: Number(s.taxable_income),
+      Isento: Number(s.exempt_income),
+      "IR Retido": Number(s.ir_withheld),
+      Previdência: Number(s.contributions),
+      Origem: s.origin,
+      Status: s.status,
+    })), `contabilidade-informes-${new Date().toISOString().slice(0, 10)}`, "Informes");
+  };
+
+  /** Exporta histórico de informes em PDF. */
+  const exportStatementsPdf = () => {
+    if (!statements.length) return toast.error("Nada para exportar");
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const pw = doc.internal.pageSize.getWidth();
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pw, 60, "F");
+    doc.setTextColor(96, 165, 250);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(18);
+    doc.text("Informes de Rendimentos", 40, 38);
+    doc.setTextColor(200, 220, 255); doc.setFontSize(9);
+    doc.text(`Emitido em ${new Date().toLocaleDateString("pt-BR")}`, pw - 40, 38, { align: "right" });
+    autoTable(doc, {
+      startY: 80,
+      head: [["Ano", "Fonte", "CNPJ", "Tributável", "Isento", "IR Retido"]],
+      body: statements.map(s => [
+        s.base_year, s.source_name, s.source_cnpj || "—",
+        fmtBRL(s.taxable_income), fmtBRL(s.exempt_income), fmtBRL(s.ir_withheld),
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [15, 23, 42], textColor: [96, 165, 250] },
+      columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } },
+      margin: { left: 40, right: 40 },
+      styles: { fontSize: 9 },
+    });
+    doc.save(`contabilidade-informes-${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
 
   return (
     <div className="space-y-6">
@@ -360,7 +420,20 @@ export default function Contabilidade() {
         {/* HISTORY */}
         <TabsContent value="history">
           <Card>
-            <CardHeader><CardTitle>Informes salvos</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Informes salvos</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2"><FileDown className="h-4 w-4" /> Exportar</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={exportStatementsXlsx}><FileSpreadsheet className="h-4 w-4 mr-2" /> Excel (.xlsx)</DropdownMenuItem>
+                    <DropdownMenuItem onClick={exportStatementsPdf}><FileDown className="h-4 w-4 mr-2" /> PDF (.pdf)</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardTitle>
+            </CardHeader>
             <CardContent>
               {statements.length === 0 ? (
                 <div className="text-sm text-muted-foreground py-6 text-center">Nenhum informe salvo ainda.</div>

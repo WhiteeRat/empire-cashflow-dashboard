@@ -14,11 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Pencil, Trash2, FileDown, AlertTriangle, Users, Calculator } from "lucide-react";
+import { Plus, Pencil, Trash2, FileDown, AlertTriangle, Users, Calculator, FileSpreadsheet } from "lucide-react";
 import { fmtBRL, fmtDate } from "@/lib/format";
 import { toast } from "sonner";
 import { buildPeriod, PeriodType } from "@/lib/periods";
 import { exportDistributionPdf } from "@/lib/profitDistributionPdf";
+import { exportToXlsx } from "@/lib/exporter";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 type Partner = {
   id: string;
@@ -232,9 +234,69 @@ export default function Diretoria() {
   };
 
   const delHistory = async (id: string) => {
-    if (!confirm("Excluir esta distribuição?")) return;
+    if (!confirm("Excluir esta distribuição? Os valores rateados também serão estornados (removidos).")) return;
+    // RLS + cascade lógico: removemos os filhos primeiro para garantir limpeza histórica.
+    await supabase.from("partner_distributions").delete().eq("distribution_id", id);
     await supabase.from("profit_distributions").delete().eq("id", id);
+    toast.success("Distribuição excluída e estornada");
     loadHistory();
+  };
+
+  // ===== Edição de distribuição salva =====
+  const [editDist, setEditDist] = useState<any | null>(null);
+  const [editRows, setEditRows] = useState<Array<{ id?: string; partner_id: string; partner_name: string; share_percent: number; amount: number }>>([]);
+  const [editApur, setEditApur] = useState({ revenue: 0, expenses: 0, taxes: 0, costs: 0, notes: "" });
+
+  const openEditDist = (h: any) => {
+    setEditDist(h);
+    setEditApur({ revenue: Number(h.revenue || 0), expenses: Number(h.expenses || 0), taxes: Number(h.taxes || 0), costs: Number(h.costs || 0), notes: h.notes || "" });
+    setEditRows((h.partner_distributions || []).map((p: any) => ({
+      id: p.id, partner_id: p.partner_id, partner_name: p.partner_name,
+      share_percent: Number(p.share_percent), amount: Number(p.amount),
+    })));
+  };
+
+  const editNetProfit = editApur.revenue - editApur.expenses - editApur.taxes - editApur.costs;
+  const editTotalDistributed = editRows.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+  const saveEditDist = async () => {
+    if (!editDist) return;
+    if (editTotalDistributed > editNetProfit + 0.01) {
+      return toast.error("Total rateado excede o lucro líquido recalculado");
+    }
+    const { error: e1 } = await supabase.from("profit_distributions").update({
+      revenue: editApur.revenue, expenses: editApur.expenses, taxes: editApur.taxes, costs: editApur.costs,
+      net_profit: editNetProfit, total_distributed: editTotalDistributed, notes: editApur.notes || null,
+    }).eq("id", editDist.id);
+    if (e1) return toast.error(e1.message);
+    // Atualiza cada linha individualmente, mantendo IDs históricos.
+    for (const r of editRows) {
+      if (!r.id) continue;
+      await supabase.from("partner_distributions").update({
+        amount: r.amount, share_percent: r.share_percent,
+      }).eq("id", r.id);
+    }
+    toast.success("Distribuição atualizada — relatórios recalculados");
+    setEditDist(null);
+    loadHistory();
+  };
+
+  /** Exporta o histórico de distribuições para XLSX. */
+  const exportHistoryXlsx = () => {
+    if (!history.length) return toast.error("Nada para exportar");
+    const rows = history.flatMap(h =>
+      (h.partner_distributions || []).map((p: any) => ({
+        Data: fmtDate(h.created_at?.slice(0, 10)),
+        Período: h.period_label,
+        Modo: h.mode,
+        Sócio: p.partner_name,
+        "Participação (%)": Number(p.share_percent),
+        Valor: Number(p.amount),
+        "Lucro Líquido": Number(h.net_profit),
+        "Total Distribuído": Number(h.total_distributed),
+      }))
+    );
+    exportToXlsx(rows, `distribuicao-historico-${new Date().toISOString().slice(0, 10)}`, "Distribuições");
   };
 
   return (
@@ -414,13 +476,24 @@ export default function Diretoria() {
         </TabsContent>
 
         {/* HISTORICO */}
-        <TabsContent value="historico">
+        <TabsContent value="historico" className="space-y-3">
+          <div className="flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2"><FileDown className="h-4 w-4" /> Exportar histórico</Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={exportHistoryXlsx}><FileSpreadsheet className="h-4 w-4 mr-2" /> Excel (.xlsx)</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => history.forEach(reprintHistory)}><FileDown className="h-4 w-4 mr-2" /> PDF (todos)</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
           <Card className="p-0 overflow-hidden">
             <Table>
               <TableHeader><TableRow>
                 <TableHead>Data</TableHead><TableHead>Período</TableHead><TableHead>Modo</TableHead>
                 <TableHead className="text-right">Lucro</TableHead><TableHead className="text-right">Distribuído</TableHead>
-                <TableHead className="w-32"></TableHead>
+                <TableHead className="w-40"></TableHead>
               </TableRow></TableHeader>
               <TableBody>
                 {history.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Sem registros</TableCell></TableRow>}
@@ -432,14 +505,63 @@ export default function Diretoria() {
                     <TableCell className="text-right tabular-nums">{fmtBRL(h.net_profit)}</TableCell>
                     <TableCell className="text-right tabular-nums">{fmtBRL(h.total_distributed)}</TableCell>
                     <TableCell className="flex gap-1">
-                      <Button size="icon" variant="ghost" onClick={() => reprintHistory(h)}><FileDown className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="ghost" onClick={() => delHistory(h.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      <Button size="icon" variant="ghost" title="Editar" onClick={() => openEditDist(h)}><Pencil className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" title="PDF" onClick={() => reprintHistory(h)}><FileDown className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="ghost" title="Excluir / Estornar" onClick={() => delHistory(h.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </Card>
+
+          {/* Dialog de edição da distribuição */}
+          <Dialog open={!!editDist} onOpenChange={(v) => !v && setEditDist(null)}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader><DialogTitle>Editar Distribuição — {editDist?.period_label}</DialogTitle></DialogHeader>
+              {editDist && (
+                <div className="space-y-3">
+                  <div className="grid gap-3 md:grid-cols-4">
+                    <div><Label>Faturamento</Label><Input type="number" step="0.01" value={editApur.revenue} onChange={e => setEditApur(s => ({ ...s, revenue: Number(e.target.value) }))} /></div>
+                    <div><Label>Despesas</Label><Input type="number" step="0.01" value={editApur.expenses} onChange={e => setEditApur(s => ({ ...s, expenses: Number(e.target.value) }))} /></div>
+                    <div><Label>Impostos</Label><Input type="number" step="0.01" value={editApur.taxes} onChange={e => setEditApur(s => ({ ...s, taxes: Number(e.target.value) }))} /></div>
+                    <div><Label>Custos</Label><Input type="number" step="0.01" value={editApur.costs} onChange={e => setEditApur(s => ({ ...s, costs: Number(e.target.value) }))} /></div>
+                  </div>
+                  <div className="flex items-center justify-between p-2 rounded bg-muted/30 text-sm">
+                    <span>Lucro Líquido recalculado</span>
+                    <span className={`font-display text-lg ${editNetProfit > 0 ? "text-success" : "text-destructive"}`}>{fmtBRL(editNetProfit)}</span>
+                  </div>
+                  <Table>
+                    <TableHeader><TableRow><TableHead>Sócio</TableHead><TableHead className="text-right">%</TableHead><TableHead className="text-right">Valor</TableHead></TableRow></TableHeader>
+                    <TableBody>
+                      {editRows.map((r, i) => (
+                        <TableRow key={r.id || i}>
+                          <TableCell>{r.partner_name}</TableCell>
+                          <TableCell className="text-right">
+                            <Input type="number" step="0.01" value={r.share_percent} className="h-8 w-24 text-right ml-auto"
+                              onChange={e => setEditRows(arr => arr.map((x, idx) => idx === i ? { ...x, share_percent: Number(e.target.value) } : x))} />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Input type="number" step="0.01" value={r.amount} className="h-8 w-32 text-right ml-auto"
+                              onChange={e => setEditRows(arr => arr.map((x, idx) => idx === i ? { ...x, amount: Number(e.target.value) } : x))} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40">
+                    <span className="text-sm text-muted-foreground">Total rateado</span>
+                    <span className={`font-display text-lg ${editTotalDistributed > editNetProfit + 0.01 ? "text-destructive" : "text-gold"}`}>{fmtBRL(editTotalDistributed)}</span>
+                  </div>
+                  <div><Label>Observações</Label><Textarea rows={2} value={editApur.notes} onChange={e => setEditApur(s => ({ ...s, notes: e.target.value }))} /></div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditDist(null)}>Cancelar</Button>
+                <Button onClick={saveEditDist} className="bg-gradient-gold text-primary-foreground">Salvar alterações</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>
