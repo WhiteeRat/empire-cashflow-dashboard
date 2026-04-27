@@ -130,6 +130,36 @@ export default function Dashboard() {
     else { toast.success("Banco excluído"); load(); }
   };
 
+  /** Exclui uma distribuição de lucro e seus rateios por sócio (estorno). */
+  const deleteDistribution = async (d: any) => {
+    if (!confirm(`Excluir distribuição "${d.period_label}" no valor de ${fmtBRL(Number(d.total_distributed || 0))}?`)) return;
+    // remove rateios primeiro para preservar integridade
+    const { error: e1 } = await supabase.from("partner_distributions").delete().eq("distribution_id", d.id);
+    if (e1) { toast.error(e1.message); return; }
+    const { error: e2 } = await supabase.from("profit_distributions").delete().eq("id", d.id);
+    if (e2) { toast.error(e2.message); return; }
+    toast.success("Distribuição excluída");
+    load();
+  };
+
+  const [editDistId, setEditDistId] = useState<string | null>(null);
+  const [editDistTotal, setEditDistTotal] = useState<string>("");
+
+  /** Inicia edição inline do total distribuído. */
+  const startEditDistribution = (d: any) => {
+    setEditDistId(d.id);
+    setEditDistTotal(String(d.total_distributed));
+  };
+
+  /** Salva o novo total distribuído (e ajusta net_profit se for menor). */
+  const saveDistribution = async (id: string) => {
+    const v = Number(editDistTotal);
+    if (Number.isNaN(v) || v < 0) { toast.error("Valor inválido"); return; }
+    const { error } = await supabase.from("profit_distributions").update({ total_distributed: v }).eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Distribuição atualizada"); setEditDistId(null); load(); }
+  };
+
   const addPartner = async () => {
     if (!partnerForm.name || !user) return;
     const { error } = await supabase.from("partners").insert({ name: partnerForm.name, share_percent: Number(partnerForm.share_percent) || 0, user_id: user.id });
