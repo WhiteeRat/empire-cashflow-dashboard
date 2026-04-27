@@ -205,9 +205,17 @@ export default function Dashboard() {
         title="Dashboard"
         subtitle="Visão soberana do seu Império financeiro"
         actions={
-          <Button onClick={exportSummary} variant="outline" className="gap-2 border-primary/40 hover:bg-primary/10">
-            <Download className="h-4 w-4" /> Exportar Resumo
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2 border-primary/40 hover:bg-primary/10">
+                <Download className="h-4 w-4" /> Exportar Resumo
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportSummary}>Excel (.xlsx)</DropdownMenuItem>
+              <DropdownMenuItem onClick={exportSummaryPdf}>PDF (.pdf)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         }
       />
 
@@ -215,7 +223,7 @@ export default function Dashboard() {
         <StatCard title="Faturamento" value={fmtBRL(receita)} icon={TrendingUp} tone="success" hint={linkAccounting ? `Inclui ${fmtBRL(accountingRevenue)} contábil` : "Total de receitas"} />
         <StatCard title="Despesas & Custos" value={fmtBRL(despesa)} icon={TrendingDown} tone="destructive" hint="Saídas operacionais" />
         <StatCard title="Lucro Líquido" value={fmtBRL(lucro)} icon={Coins} tone="gold" hint={`Margem ${receita ? ((lucro / receita) * 100).toFixed(1) : 0}%`} />
-        <StatCard title="Distribuição Prevista" value={fmtBRL(distribuicao)} icon={PiggyBank} tone="info" hint={proLaboreAnual > 0 ? `Pró-labore anual (sangrias ${fmtBRL(totalSangrias)})` : "Sangria sócios (50%)"} />
+        <StatCard title={distribuicaoReal > 0 ? "Distribuição Realizada" : "Distribuição Prevista"} value={fmtBRL(distribuicao)} icon={PiggyBank} tone="info" hint={distribuicaoHint} />
         <StatCard title="Capital de Giro" value={fmtBRL(capitalGiro)} icon={Wallet} tone="warning" hint="Disponível em caixa" />
       </div>
 
