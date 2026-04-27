@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCompany } from "@/contexts/CompanyContext";
+import { scope, withCompany } from "@/lib/companyScope";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { Card } from "@/components/ui/card";
@@ -23,6 +25,8 @@ type Tx = { id: string; date: string; type: string; amount: number; description:
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.id ?? null;
   const [banks, setBanks] = useState<Bank[]>([]);
   const [partners, setPartners] = useState<Partner[]>([]);
   const [txs, setTxs] = useState<Tx[]>([]);
